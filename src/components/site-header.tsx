@@ -60,7 +60,7 @@ export function SiteHeader({
           className="font-[family-name:var(--font-display)] text-xl tracking-wide text-white"
           onClick={() => setOpen(false)}
         >
-          Turnamen Bola
+          MekarJaya Turnamen
         </Link>
 
         {/* Jangan pakai .btn-ghost di sini — display:inline-flex menimpa sm:hidden */}

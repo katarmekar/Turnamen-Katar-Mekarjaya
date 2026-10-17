@@ -2,9 +2,9 @@ import {
   BracketFilled,
   BracketSkeleton,
 } from "@/components/bracket-skeleton";
-import { StandingsTable } from "@/components/standings-table";
+import { GroupResultsMatrix } from "@/components/group-results-matrix";
 import { COMPETITION_FORMAT_LABEL } from "@/lib/format";
-import { computeStandings } from "@/lib/standings";
+import { buildGroupMatrices, isLeagueFormat } from "@/lib/league";
 import type { TournamentForBracket } from "@/lib/tournament-bracket";
 
 type TournamentBracketViewProps = {
@@ -13,17 +13,51 @@ type TournamentBracketViewProps = {
   showHeading?: boolean;
 };
 
+const KNOCKOUT_ROUND_BASE = 10;
+
+function expectedKnockoutSize(
+  groupCount: number | null | undefined,
+  qualifyPerGroup: number | null | undefined
+) {
+  const n = (groupCount ?? 0) * (qualifyPerGroup ?? 0);
+  if (n < 2) return 4;
+  let p = 2;
+  while (p < n) p *= 2;
+  return p;
+}
+
 export function TournamentBracketView({
   tournament,
   showHeading = true,
 }: TournamentBracketViewProps) {
-  const isRr =
-    tournament?.competitionFormat === "single_round_robin" ||
-    tournament?.competitionFormat === "double_round_robin";
+  const isRr = isLeagueFormat(tournament?.competitionFormat);
   const hasSchedule = tournament != null && tournament.matches.length > 0;
   const confirmedCount =
     tournament?.teams.filter((t) => t.status === "confirmed").length ?? 0;
-  const standings = tournament ? computeStandings(tournament.matches) : [];
+
+  const groupMatrices = tournament
+    ? buildGroupMatrices(tournament.matches, tournament.bracketSlots)
+    : [];
+
+  const knockoutMatches = tournament
+    ? tournament.matches.filter(
+        (m) => m.groupIndex == null && m.round >= KNOCKOUT_ROUND_BASE
+      )
+    : [];
+  const knockoutSlots = tournament
+    ? tournament.bracketSlots.filter(
+        (s) => s.groupIndex == null && s.round >= KNOCKOUT_ROUND_BASE
+      )
+    : [];
+  const hasKnockout = knockoutMatches.length > 0 && knockoutSlots.length > 0;
+  const koSize =
+    tournament?.bracketSize ??
+    expectedKnockoutSize(tournament?.groupCount, tournament?.qualifyPerGroup);
+
+  const groupMeta =
+    isRr && tournament?.groupCount
+      ? ` · ${tournament.groupCount} grup × maks ${tournament.maxTeamsPerGroup ?? "—"} · lolos ${tournament.qualifyPerGroup ?? "—"}/grup`
+      : "";
 
   return (
     <div>
@@ -40,7 +74,7 @@ export function TournamentBracketView({
               ? `Status ${tournament.status} · ${
                   COMPETITION_FORMAT_LABEL[tournament.competitionFormat] ??
                   tournament.competitionFormat
-                } · kapasitas ${tournament.maxTeams}${
+                }${groupMeta} · kapasitas ${tournament.maxTeams}${
                   hasSchedule
                     ? isRr
                       ? ` · ${tournament.matches.length} pertandingan`
@@ -63,11 +97,52 @@ export function TournamentBracketView({
               {hasSchedule ? (
                 <>
                   <div className="panel p-6">
-                    <h3 className="font-semibold text-white">Klasemen</h3>
+                    <h3 className="font-semibold text-white">
+                      Hasil fase grup
+                    </h3>
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      Matriks skor antar tim dalam grup. Diisi otomatis saat
+                      admin memasukkan hasil di Jadwal &amp; skor.
+                    </p>
                     <div className="mt-4">
-                      <StandingsTable rows={standings} />
+                      <GroupResultsMatrix groups={groupMatrices} />
                     </div>
                   </div>
+
+                  <div className="space-y-4">
+                    <div className="panel p-4">
+                      <h3 className="font-semibold text-white">
+                        Bagan knockout
+                        {koSize <= 4
+                          ? " (semifinal → final)"
+                          : koSize <= 8
+                            ? " (perempat → final)"
+                            : ""}
+                      </h3>
+                      <p className="mt-1 text-sm text-[var(--muted)]">
+                        {hasKnockout
+                          ? `Tim lolos dari grup · bagan ${koSize}`
+                          : `Setelah fase grup selesai, ${tournament.qualifyPerGroup ?? "—"} tim/grup masuk bagan knockout (${koSize} slot).`}
+                      </p>
+                    </div>
+                    <div className="overflow-x-auto">
+                      {hasKnockout ? (
+                        <BracketFilled
+                          slots={knockoutSlots}
+                          bracketSize={koSize}
+                          matches={knockoutMatches.map((m) => ({
+                            slotAId: m.slotAId,
+                            slotBId: m.slotBId,
+                            winnerTeamId: m.winnerTeamId,
+                            resultType: m.resultType,
+                          }))}
+                        />
+                      ) : (
+                        <BracketSkeleton maxTeams={koSize} />
+                      )}
+                    </div>
+                  </div>
+
                   <div className="panel p-6">
                     <h3 className="font-semibold text-white">
                       Daftar pertandingan
@@ -82,7 +157,7 @@ export function TournamentBracketView({
                             {m.slotA.team?.name ?? "—"} vs{" "}
                             {m.slotB.team?.name ?? "—"}
                           </span>
-                          {m.round === 2 ? " · Leg 2" : ""}
+                          {m.notes ? ` · ${m.notes}` : ""}
                           {m.resultType
                             ? m.scoreA != null && m.scoreB != null
                               ? ` · ${m.scoreA}-${m.scoreB}`
@@ -103,7 +178,10 @@ export function TournamentBracketView({
                   <p className="text-sm text-[var(--muted)]">
                     Format{" "}
                     {COMPETITION_FORMAT_LABEL[tournament.competitionFormat]}.
-                    Jadwal pertandingan dibuat setelah admin menekan{" "}
+                    {tournament.groupCount
+                      ? ` ${tournament.groupCount} grup, maks ${tournament.maxTeamsPerGroup} tim/grup, ${tournament.qualifyPerGroup} lolos/grup.`
+                      : " Atur grup di Edit turnamen."}{" "}
+                    Jadwal dibuat setelah admin menekan{" "}
                     <strong className="text-white">Acak tim</strong>.
                   </p>
                 </div>

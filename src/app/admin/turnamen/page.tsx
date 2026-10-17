@@ -2,9 +2,11 @@ import Link from "next/link";
 import { AdminSectionNav } from "@/components/admin-section-nav";
 import { SiteHeader } from "@/components/site-header";
 import { ActionForm } from "@/components/action-form-status";
+import { IdrMoneyInput } from "@/components/idr-money-input";
 import { saveTournament } from "@/app/actions/admin";
 import { getSelectedTournamentId } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
+import { LeagueSettingsFields } from "@/components/league-settings-fields";
 import { COMPETITION_FORMAT_LABEL, formatIdr } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
@@ -99,22 +101,13 @@ export default async function AdminTurnamenPage({ searchParams }: PageProps) {
                   <option value={32}>32 tim</option>
                 </select>
               </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-[var(--muted)]">Sistem kompetisi</span>
-                <select
-                  name="competition_format"
-                  className="input"
-                  defaultValue={active?.competitionFormat ?? "knockout"}
-                >
-                  <option value="knockout">Sistem gugur (knockout)</option>
-                  <option value="single_round_robin">
-                    Sistem liga — setengah kompetisi (bertemu 1×)
-                  </option>
-                  <option value="double_round_robin">
-                    Sistem liga — kompetisi penuh (bertemu 2×)
-                  </option>
-                </select>
-              </label>
+              <LeagueSettingsFields
+                defaultFormat={active?.competitionFormat ?? "knockout"}
+                defaultGroupCount={active?.groupCount}
+                defaultMaxTeamsPerGroup={active?.maxTeamsPerGroup}
+                defaultQualifyPerGroup={active?.qualifyPerGroup}
+                maxTeams={active?.maxTeams ?? 16}
+              />
               <label className="flex flex-col gap-1 text-sm">
                 <span className="text-[var(--muted)]">
                   Maks. pemain per tim
@@ -156,10 +149,8 @@ export default async function AdminTurnamenPage({ searchParams }: PageProps) {
               </label>
               <label className="flex flex-col gap-1 text-sm">
                 <span className="text-[var(--muted)]">Biaya pendaftaran</span>
-                <input
+                <IdrMoneyInput
                   name="registration_fee"
-                  type="number"
-                  className="input"
                   defaultValue={Number(active?.registrationFee ?? 500000)}
                 />
               </label>

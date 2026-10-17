@@ -32,11 +32,20 @@ export default async function AdminBaganPage() {
           slotBId: true,
           winnerTeamId: true,
           resultType: true,
+          groupIndex: true,
+          round: true,
         },
       },
       _count: { select: { matches: true } },
     },
   });
+
+  const pendingGroupMatches = tournament.matches.filter(
+    (m) => m.groupIndex != null && !m.resultType
+  ).length;
+  const hasKnockoutPhase = tournament.matches.some(
+    (m) => m.groupIndex == null && m.round >= 10
+  );
 
   return (
     <div className="hex-grid min-h-screen">
@@ -68,9 +77,14 @@ export default async function AdminBaganPage() {
             bracketSize={tournament.bracketSize}
             bracketLocked={tournament.bracketLocked}
             matchCount={tournament._count.matches}
+            groupCount={tournament.groupCount}
+            maxTeamsPerGroup={tournament.maxTeamsPerGroup}
+            qualifyPerGroup={tournament.qualifyPerGroup}
             teams={tournament.teams}
             slots={tournament.bracketSlots}
             matches={tournament.matches}
+            pendingGroupMatches={pendingGroupMatches}
+            hasKnockoutPhase={hasKnockoutPhase}
           />
         </div>
       </main>

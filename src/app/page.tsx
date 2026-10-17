@@ -29,7 +29,7 @@ export default async function HomePage() {
           Pendaftaran online
         </p>
         <h1 className="max-w-3xl font-[family-name:var(--font-display)] text-6xl leading-none tracking-wide text-white md:text-8xl">
-          {openTournament?.name ?? "Turnamen Bola"}
+          {openTournament?.name ?? "MekarJaya Turnamen"}
         </h1>
         <p className="mt-5 max-w-xl text-lg text-[var(--muted)]">
           {openTournament?.description ??

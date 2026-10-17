@@ -31,6 +31,7 @@ type PlayersRosterTableProps = {
   fields: PlayerFieldDef[];
   docCards: DocCardDef[];
   minPlayerDocuments: number;
+  locked?: boolean;
 };
 
 function fieldValue(player: RosterPlayer, key: string): string {
@@ -263,6 +264,7 @@ export function PlayersRosterTable({
   fields,
   docCards,
   minPlayerDocuments,
+  locked = false,
 }: PlayersRosterTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [addingDocId, setAddingDocId] = useState<string | null>(null);
@@ -287,7 +289,7 @@ export function PlayersRosterTable({
             <th className="px-4 py-3 font-medium">Detail</th>
             <th className="px-4 py-3 font-medium">Berkas</th>
             <th className="px-4 py-3 font-medium">Status</th>
-            <th className="px-4 py-3 font-medium">Aksi</th>
+            {!locked && <th className="px-4 py-3 font-medium">Aksi</th>}
           </tr>
         </thead>
         <tbody>
@@ -337,7 +339,7 @@ export function PlayersRosterTable({
                 </td>
                 <td className="px-4 py-3 font-medium text-white">
                   {player.fullName}
-                  {isEditing && (
+                  {!locked && isEditing && (
                     <EditPlayerForm
                       teamId={teamId}
                       player={player}
@@ -345,7 +347,7 @@ export function PlayersRosterTable({
                       onDone={() => setEditingId(null)}
                     />
                   )}
-                  {isAddingDoc && (
+                  {!locked && isAddingDoc && (
                     <AddDocSlot
                       teamId={teamId}
                       playerId={player.id}
@@ -384,33 +386,35 @@ export function PlayersRosterTable({
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      className="btn-ghost border border-white/15 px-2.5 py-1 text-xs"
-                      onClick={() => {
-                        setEditingId(isEditing ? null : player.id);
-                        setAddingDocId(null);
-                      }}
-                    >
-                      {isEditing ? "Tutup" : "Edit"}
-                    </button>
-                    {remaining.length > 0 && (
+                {!locked && (
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1.5">
                       <button
                         type="button"
                         className="btn-ghost border border-white/15 px-2.5 py-1 text-xs"
                         onClick={() => {
-                          setAddingDocId(isAddingDoc ? null : player.id);
-                          setEditingId(null);
+                          setEditingId(isEditing ? null : player.id);
+                          setAddingDocId(null);
                         }}
                       >
-                        {isAddingDoc ? "Tutup" : "Berkas"}
+                        {isEditing ? "Tutup" : "Edit"}
                       </button>
-                    )}
-                    <DeleteButton teamId={teamId} playerId={player.id} />
-                  </div>
-                </td>
+                      {remaining.length > 0 && (
+                        <button
+                          type="button"
+                          className="btn-ghost border border-white/15 px-2.5 py-1 text-xs"
+                          onClick={() => {
+                            setAddingDocId(isAddingDoc ? null : player.id);
+                            setEditingId(null);
+                          }}
+                        >
+                          {isAddingDoc ? "Tutup" : "Berkas"}
+                        </button>
+                      )}
+                      <DeleteButton teamId={teamId} playerId={player.id} />
+                    </div>
+                  </td>
+                )}
               </tr>
             );
           })}

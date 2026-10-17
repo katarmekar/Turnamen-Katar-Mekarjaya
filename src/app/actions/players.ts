@@ -23,6 +23,15 @@ type ParsedPlayer = {
   extraData: Record<string, string>;
 };
 
+const ROSTER_LOCKED_MESSAGE =
+  "Bagan sudah ditetapkan. Data pemain tidak bisa ditambah, diubah, atau dihapus.";
+
+function rosterLockedMessage(team: {
+  tournament: { bracketLocked: boolean };
+}): string | null {
+  return team.tournament.bracketLocked ? ROSTER_LOCKED_MESSAGE : null;
+}
+
 async function getConfirmedTeam(captainId: string, teamId: string) {
   return prisma.team.findFirst({
     where: { id: teamId, captainId, status: "confirmed" },
@@ -159,6 +168,9 @@ export async function addPlayer(
     return { error: "Tim belum dikonfirmasi atau tidak ditemukan." };
   }
 
+  const locked = rosterLockedMessage(team);
+  if (locked) return { error: locked };
+
   if (team.players.length >= team.tournament.maxPlayersPerTeam) {
     return {
       error: `Maksimal ${team.tournament.maxPlayersPerTeam} pemain per tim.`,
@@ -224,6 +236,9 @@ export async function updatePlayer(
     return { error: "Tim belum dikonfirmasi atau tidak ditemukan." };
   }
 
+  const locked = rosterLockedMessage(team);
+  if (locked) return { error: locked };
+
   const existing = await prisma.player.findFirst({
     where: { id: playerId, teamId },
   });
@@ -281,6 +296,9 @@ export async function deletePlayerAction(
     return { error: "Tidak diizinkan." };
   }
 
+  const locked = rosterLockedMessage(team);
+  if (locked) return { error: locked };
+
   await prisma.player.deleteMany({
     where: { id: playerId, teamId },
   });
@@ -292,6 +310,9 @@ export async function deletePlayer(playerId: string, teamId: string) {
   const profile = await requireProfile();
   const team = await getConfirmedTeam(profile.id, teamId);
   if (!team) throw new Error("Tidak diizinkan");
+
+  const locked = rosterLockedMessage(team);
+  if (locked) throw new Error(locked);
 
   await prisma.player.deleteMany({
     where: { id: playerId, teamId },
@@ -318,6 +339,9 @@ export async function uploadPlayerDocument(
 
   const team = await getConfirmedTeam(profile.id, teamId);
   if (!team) return { error: "Tim belum dikonfirmasi." };
+
+  const locked = rosterLockedMessage(team);
+  if (locked) return { error: locked };
 
   const allowed = team.tournament.docCards.filter((c) => c.active);
   const card = allowed.find((c) => c.key === docType);
@@ -415,6 +439,9 @@ export async function addPlayerWithDocuments(
   if (!team) {
     return { error: "Tim belum dikonfirmasi atau tidak ditemukan." };
   }
+
+  const locked = rosterLockedMessage(team);
+  if (locked) return { error: locked };
 
   if (team.players.length >= team.tournament.maxPlayersPerTeam) {
     return {

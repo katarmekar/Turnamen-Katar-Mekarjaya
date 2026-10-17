@@ -618,6 +618,11 @@ select.input option:hover {
   width: 100%;
 }
 
+.pro-bracket[data-size="2"] .pro-bracket-board,
+.pro-bracket[data-size="4"] .pro-bracket-board {
+  min-height: 18rem;
+}
+
 .pro-bracket[data-size="16"] {
   --pb-slot-h: 1.85rem;
   --pb-gap: 0.4rem;
@@ -857,12 +862,21 @@ select.input option:hover {
     #8a6508 100%
   );
   color: #1a1200;
-  animation: pro-slot-flicker 0.12s steps(2) infinite;
+  text-transform: none;
 }
 
-.pro-bracket-slot.is-shuffling span {
-  display: inline-block;
-  animation: pro-slot-name-pop 0.07s ease;
+.pro-bracket-slot.is-shuffling .bracket-slot-flap {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: 1;
+  color: inherit;
+}
+
+.pro-bracket-slot.is-shuffling .bracket-slot-flap .split-flap-text__tile {
+  height: 0.95em;
+  width: 0.48em;
 }
 
 .pro-bracket.is-shuffling .pro-bracket-board {

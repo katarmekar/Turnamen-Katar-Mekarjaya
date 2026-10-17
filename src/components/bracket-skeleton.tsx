@@ -1,3 +1,7 @@
+"use client";
+
+import SplitFlapText from "@/components/split-flap-text";
+
 export type SlotData = {
   id?: string;
   round: number;
@@ -31,7 +35,10 @@ type BracketFilledProps = {
   matches?: MatchOutcomeData[];
 };
 
+/** Ukuran bagan 2^n (termasuk 4 untuk SF→final setelah fase grup). */
 export function normalizeBracketSize(n: number) {
+  if (n <= 2) return 2;
+  if (n <= 4) return 4;
   if (n <= 8) return 8;
   if (n <= 16) return 16;
   return 32;
@@ -41,7 +48,17 @@ function roundLabel(size: number, round: number, totalRounds: number) {
   const remaining = size / 2 ** (round - 1);
   if (round === totalRounds) return null;
   if (remaining === 4) return "SEMIFINAL";
+  if (remaining === 8) return "PEREMPAT FINAL";
+  if (remaining === 16) return "BABAK 16";
   return null;
+}
+
+/** Normalisasi round fase gugur (DB bisa mulai dari 10) ke 1-based untuk ProBracketView. */
+export function remapRoundsToBracket(slots: SlotData[]): SlotData[] {
+  if (slots.length === 0) return slots;
+  const base = Math.min(...slots.map((s) => s.round));
+  if (base <= 1) return slots;
+  return slots.map((s) => ({ ...s, round: s.round - base + 1 }));
 }
 
 function slotText(slot: SlotData | undefined, override?: string) {
@@ -114,10 +131,12 @@ function BracketSlot({
   label,
   flash,
   tone = "empty",
+  flapPadTo = 12,
 }: {
   label: string;
   flash?: boolean;
   tone?: SlotTone;
+  flapPadTo?: number;
 }) {
   const empty = label === "—" || label === "";
   const toneClass = flash
@@ -126,13 +145,38 @@ function BracketSlot({
       ? "is-empty"
       : `is-${tone}`;
 
+  const display = label || "—";
+  const pad = Math.min(
+    flapPadTo,
+    Math.max(display.length, flash ? 6 : display.length)
+  );
+
   return (
     <div
       className={`pro-bracket-slot ${toneClass}`}
       title={label}
       data-tone={flash ? "shuffling" : empty ? "empty" : tone}
     >
-      <span key={flash ? label : undefined}>{label || "—"}</span>
+      {flash && !empty ? (
+        <SplitFlapText
+          text={display}
+          padTo={pad}
+          fontSize="0.72rem"
+          gap={0}
+          flipDuration={0.07}
+          stagger={0.012}
+          flipsPerChar={2}
+          order="random"
+          intro={false}
+          loop={false}
+          tileStyle="minimal"
+          depth={0.2}
+          textColor="currentColor"
+          className="bracket-slot-flap"
+        />
+      ) : (
+        <span>{display}</span>
+      )}
     </div>
   );
 }
@@ -147,6 +191,7 @@ function MatchColumn({
   r1Labels,
   shuffling,
   tones,
+  flapPadTo,
 }: {
   slots: (SlotData | undefined)[];
   side: "left" | "right";
@@ -157,6 +202,7 @@ function MatchColumn({
   r1Labels?: string[];
   shuffling?: boolean;
   tones: Map<string, SlotTone>;
+  flapPadTo: number;
 }) {
   const pairs: {
     a: SlotData | undefined;
@@ -206,11 +252,13 @@ function MatchColumn({
                 label={slotText(pair.a, aOverride)}
                 flash={shuffling && round === 1}
                 tone={toneFor(pair.a, aOverride)}
+                flapPadTo={flapPadTo}
               />
               <BracketSlot
                 label={slotText(pair.b, bOverride)}
                 flash={shuffling && round === 1}
                 tone={toneFor(pair.b, bOverride)}
+                flapPadTo={flapPadTo}
               />
             </div>
             {label && pairs.length <= 4 && (
@@ -339,6 +387,14 @@ export function ProBracketView({
   const totalRounds = Math.log2(size);
   const sideRounds = totalRounds - 1;
   const tones = resolveSlotTones(slots, matches);
+  const flapPadTo = Math.min(
+    14,
+    Math.max(
+      8,
+      ...(r1Labels ?? []).map((n) => n.length),
+      ...slots.filter((s) => s.round === 1 && s.team).map((s) => s.team!.name.length)
+    )
+  );
 
   const byRoundSide = (round: number, side: "left" | "right") =>
     slots
@@ -368,6 +424,7 @@ export function ProBracketView({
                 r1Labels={r1Labels}
                 shuffling={shuffling}
                 tones={tones}
+                flapPadTo={flapPadTo}
               />
             );
           })}
@@ -392,6 +449,7 @@ export function ProBracketView({
                 r1Labels={r1Labels}
                 shuffling={shuffling}
                 tones={tones}
+                flapPadTo={flapPadTo}
               />
             );
           })}
@@ -430,12 +488,16 @@ export function BracketFilled({
   shuffling,
   matches,
 }: BracketFilledProps) {
+  const remapped = remapRoundsToBracket(slots);
   const inferred =
-    bracketSize ?? (slots.filter((s) => s.round === 1).length || 16);
+    bracketSize ??
+    (remapped.filter((s) => s.round === 1).length ||
+      remapped.length ||
+      8);
   const size = normalizeBracketSize(inferred);
   return (
     <ProBracketView
-      slots={slots}
+      slots={remapped}
       size={size}
       r1Labels={r1Labels}
       shuffling={shuffling}

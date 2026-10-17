@@ -7,8 +7,14 @@ import { requireRole } from "@/lib/auth";
 import { ensureDefaultDocCards } from "@/lib/doc-cards";
 import { ensureDefaultPlayerFields } from "@/lib/player-fields";
 import { ADMIN_TOURNAMENT_COOKIE } from "@/lib/admin-tournament";
-import { generateCompetition, submitMatchResult } from "@/lib/bracket";
+import {
+  generateCompetition,
+  generateKnockoutFromGroups,
+  submitMatchResult,
+} from "@/lib/bracket";
+import { isLeagueFormat } from "@/lib/league";
 import { prisma } from "@/lib/prisma";
+import { purgeTournamentStorage } from "@/lib/supabase/storage-cleanup";
 
 export type ActionState = { error?: string; success?: string };
 
@@ -49,7 +55,10 @@ export async function clearSelectedTournament(): Promise<void> {
   redirect("/admin");
 }
 
-/** Hapus turnamen beserta data terkait (tim, bagan, jadwal). */
+/**
+ * Hapus turnamen + semua data terkait (tim, bayar, pemain, bagan, jadwal, file Storage).
+ * Akun user (profiles / auth) sengaja dipertahankan.
+ */
 export async function deleteTournament(
   _prev: ActionState,
   formData: FormData
@@ -62,7 +71,23 @@ export async function deleteTournament(
 
   const tournament = await prisma.tournament.findUnique({
     where: { id: tournamentId },
-    select: { id: true, name: true },
+    select: {
+      id: true,
+      name: true,
+      teams: {
+        select: {
+          id: true,
+          logoPath: true,
+          payments: { select: { proofPath: true } },
+          players: {
+            select: {
+              photoPath: true,
+              documents: { select: { filePath: true } },
+            },
+          },
+        },
+      },
+    },
   });
   if (!tournament) return { error: "Turnamen tidak ditemukan." };
 
@@ -72,6 +97,35 @@ export async function deleteTournament(
     };
   }
 
+  const teamIds = tournament.teams.map((t) => t.id);
+  const knownPaths: {
+    bucket: "payment-proofs" | "player-docs" | "team-logos";
+    path: string;
+  }[] = [];
+
+  for (const team of tournament.teams) {
+    if (team.logoPath) {
+      knownPaths.push({ bucket: "team-logos", path: team.logoPath });
+    }
+    for (const payment of team.payments) {
+      if (payment.proofPath) {
+        knownPaths.push({ bucket: "payment-proofs", path: payment.proofPath });
+      }
+    }
+    for (const player of team.players) {
+      if (player.photoPath) {
+        knownPaths.push({ bucket: "player-docs", path: player.photoPath });
+      }
+      for (const doc of player.documents) {
+        if (doc.filePath) {
+          knownPaths.push({ bucket: "player-docs", path: doc.filePath });
+        }
+      }
+    }
+  }
+
+  // File Storage dulu, lalu baris DB (Cascade; profiles tetap).
+  await purgeTournamentStorage({ teamIds, knownPaths });
   await prisma.tournament.delete({ where: { id: tournamentId } });
 
   const jar = await cookies();
@@ -86,7 +140,9 @@ export async function deleteTournament(
   revalidatePath("/bagan");
   revalidatePath("/");
 
-  return { success: `Turnamen "${tournament.name}" dihapus.` };
+  return {
+    success: `Turnamen "${tournament.name}" dihapus. Data terkait hilang; akun user tetap ada.`,
+  };
 }
 
 export async function confirmPayment(
@@ -229,6 +285,46 @@ export async function saveTournament(
     return { error: "Sistem kompetisi tidak valid." };
   }
 
+  let groupCount: number | null = null;
+  let maxTeamsPerGroup: number | null = null;
+  let qualifyPerGroup: number | null = null;
+
+  if (isLeagueFormat(competitionFormat)) {
+    groupCount = Number(formData.get("group_count") ?? 0);
+    maxTeamsPerGroup = Number(formData.get("max_teams_per_group") ?? 0);
+    qualifyPerGroup = Number(formData.get("qualify_per_group") ?? 0);
+
+    if (
+      !Number.isInteger(groupCount) ||
+      groupCount < 1 ||
+      groupCount > 16
+    ) {
+      return { error: "Jumlah grup harus bilangan bulat 1–16." };
+    }
+    if (
+      !Number.isInteger(maxTeamsPerGroup) ||
+      maxTeamsPerGroup < 2 ||
+      maxTeamsPerGroup > 16
+    ) {
+      return { error: "Maksimal tim per grup harus 2–16." };
+    }
+    if (
+      !Number.isInteger(qualifyPerGroup) ||
+      qualifyPerGroup < 1 ||
+      qualifyPerGroup > maxTeamsPerGroup
+    ) {
+      return {
+        error:
+          "Tim lolos per grup harus minimal 1 dan tidak melebihi maks. tim per grup.",
+      };
+    }
+    if (groupCount * maxTeamsPerGroup < maxTeams) {
+      return {
+        error: `Kapasitas grup (${groupCount}×${maxTeamsPerGroup}=${groupCount * maxTeamsPerGroup}) kurang dari kapasitas turnamen (${maxTeams}).`,
+      };
+    }
+  }
+
   if (adminWhatsapp && !/^[\d+\s()-]{8,20}$/.test(adminWhatsapp)) {
     return { error: "Nomor WhatsApp admin tidak valid." };
   }
@@ -246,6 +342,9 @@ export async function saveTournament(
     adminWhatsapp: adminWhatsapp || null,
     status,
     competitionFormat,
+    groupCount,
+    maxTeamsPerGroup,
+    qualifyPerGroup,
   };
 
   try {
@@ -285,9 +384,13 @@ export async function shuffleBracket(
     revalidatePath("/admin/bagan");
     revalidatePath("/admin/jadwal");
     revalidatePath("/bagan");
-    if ("mode" in result && result.mode) {
+    if ("mode" in result && result.mode && result.mode !== "knockout_from_groups") {
+      const groups =
+        "groupCount" in result && result.groupCount
+          ? ` · ${result.groupCount} grup`
+          : "";
       return {
-        success: `Jadwal sistem liga (${result.mode === "double_round_robin" ? "kompetisi penuh" : "setengah kompetisi"}): ${result.matchCount} pertandingan (${result.teamCount} tim). Tekan Tetapkan bagan jika sudah final.`,
+        success: `Jadwal fase grup (${result.mode === "double_round_robin" ? "bertemu 2×" : "bertemu 1×"}): ${result.matchCount} pertandingan (${result.teamCount} tim${groups}). Tekan Tetapkan bagan jika sudah final.`,
       };
     }
     return {
@@ -295,6 +398,28 @@ export async function shuffleBracket(
     };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Gagal membuat bagan" };
+  }
+}
+
+/** Buat fase gugur dari klasemen grup (jika belum otomatis). */
+export async function startKnockoutPhase(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireRole("admin");
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  try {
+    const result = await generateKnockoutFromGroups(tournamentId);
+    revalidatePath("/admin/bagan");
+    revalidatePath("/admin/jadwal");
+    revalidatePath("/bagan");
+    return {
+      success: `Fase gugur dibuat: ${result.qualifierCount} tim lolos · bagan ${result.bracketSize} (${result.byeCount} BYE) · ${result.matchCount} pertandingan.`,
+    };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Gagal membuat fase gugur",
+    };
   }
 }
 

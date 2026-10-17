@@ -102,6 +102,8 @@ export default async function PemainPage({
     documents: p.documents.map((d) => ({ id: d.id, docType: d.docType })),
   }));
 
+  const rosterLocked = team.tournament.bracketLocked;
+
   const fieldDefs = activeFields.map((f) => ({
     id: f.id,
     key: f.key,
@@ -137,30 +139,42 @@ export default async function PemainPage({
           tiap pemain wajib {minHint}
         </p>
 
-        <div className="panel mt-6 p-6">
-          <h2 className="font-semibold text-white">Tambah pemain</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Isi data pemain dan unggah berkas sesuai ketentuan ({minHint}), baru
-            tombol Simpan aktif.
-          </p>
-          <div className="mt-4">
-            <AddPlayerForm
-              teamId={team.id}
-              fields={fieldDefs}
-              docCards={cardDefs}
-              minPlayerDocuments={team.tournament.minPlayerDocuments}
-              canAdd={
-                team.players.length < team.tournament.maxPlayersPerTeam
-              }
-            />
+        {rosterLocked ? (
+          <div className="panel mt-6 border border-amber-400/30 p-6">
+            <h2 className="font-semibold text-white">Data pemain terkunci</h2>
+            <p className="mt-1 text-sm text-amber-200">
+              Bagan sudah ditetapkan. Tambah, edit, ganti, dan hapus data pemain
+              tidak bisa dilakukan lagi.
+            </p>
           </div>
-        </div>
+        ) : (
+          <div className="panel mt-6 p-6">
+            <h2 className="font-semibold text-white">Tambah pemain</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Isi data pemain dan unggah berkas sesuai ketentuan ({minHint}), baru
+              tombol Simpan aktif.
+            </p>
+            <div className="mt-4">
+              <AddPlayerForm
+                teamId={team.id}
+                fields={fieldDefs}
+                docCards={cardDefs}
+                minPlayerDocuments={team.tournament.minPlayerDocuments}
+                canAdd={
+                  team.players.length < team.tournament.maxPlayersPerTeam
+                }
+              />
+            </div>
+          </div>
+        )}
 
         <div className="panel mt-6 overflow-hidden">
           <div className="border-b border-white/10 px-4 py-3">
             <h2 className="font-semibold text-white">Daftar pemain</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              Edit data, tambah berkas, atau hapus pemain dari daftar.
+              {rosterLocked
+                ? "Data hanya bisa dilihat. Perubahan terkunci setelah bagan ditetapkan."
+                : "Edit data, tambah berkas, atau hapus pemain dari daftar."}
             </p>
           </div>
           <PlayersRosterTable
@@ -169,6 +183,7 @@ export default async function PemainPage({
             fields={fieldDefs}
             docCards={cardDefs}
             minPlayerDocuments={team.tournament.minPlayerDocuments}
+            locked={rosterLocked}
           />
         </div>
       </main>

@@ -174,13 +174,15 @@ export default async function TimPage({
         {team.status === "confirmed" && (
           <div className="panel mt-4 p-6">
             <p className="text-sm text-emerald-300">
-              Pembayaran dikonfirmasi. Anda dapat mengisi data pemain.
+              {t.bracketLocked
+                ? "Pembayaran dikonfirmasi. Bagan sudah ditetapkan, data pemain hanya bisa dilihat."
+                : "Pembayaran dikonfirmasi. Anda dapat mengisi data pemain."}
             </p>
             <Link
               href={`/dashboard/pemain?teamId=${team.id}`}
               className="btn-primary mt-4 inline-flex"
             >
-              Kelola pemain
+              {t.bracketLocked ? "Lihat pemain" : "Kelola pemain"}
             </Link>
           </div>
         )}

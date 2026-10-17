@@ -13,6 +13,8 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-teams": "tsx --env-file=.env prisma/seed-teams.ts",
+    "db:seed-liga:local": "tsx --env-file=.env prisma/seed-liga-local.ts",
+    "db:seed-gugur:local": "tsx --env-file=.env prisma/seed-gugur-local.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

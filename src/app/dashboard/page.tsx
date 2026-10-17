@@ -220,8 +220,12 @@ export default async function DashboardPage() {
             <div>
               <h2 className="text-lg font-semibold text-white">Pemain</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Lihat daftar nama di sini. Tambah, edit, atau hapus lewat kelola
-                pemain.
+                {confirmedTeams.length > 0 &&
+                confirmedTeams.every((t) => t.tournament.bracketLocked)
+                  ? "Setelah bagan ditetapkan, data pemain hanya bisa dilihat."
+                  : confirmedTeams.some((t) => t.tournament.bracketLocked)
+                    ? "Tim yang bagannya sudah ditetapkan hanya bisa dilihat. Tim lain masih bisa dikelola."
+                    : "Lihat daftar nama di sini. Tambah, edit, atau hapus lewat kelola pemain."}
               </p>
             </div>
             {confirmedTeams[0] && (
@@ -229,7 +233,9 @@ export default async function DashboardPage() {
                 href={`/dashboard/pemain?teamId=${confirmedTeams[0].id}`}
                 className="btn-primary shrink-0"
               >
-                Kelola pemain
+                {confirmedTeams[0].tournament.bracketLocked
+                  ? "Lihat pemain"
+                  : "Kelola pemain"}
               </Link>
             )}
           </div>
@@ -253,7 +259,7 @@ export default async function DashboardPage() {
                         href={`/dashboard/pemain?teamId=${t.id}`}
                         className="text-xs text-[var(--accent)] hover:underline"
                       >
-                        Kelola
+                        {t.tournament.bracketLocked ? "Lihat" : "Kelola"}
                       </Link>
                     </div>
                   )}
@@ -262,7 +268,9 @@ export default async function DashboardPage() {
                   </p>
                   {t.players.length === 0 ? (
                     <p className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-4 text-sm text-[var(--muted)]">
-                      Belum ada pemain. Masuk ke kelola pemain untuk menambah.
+                      {t.tournament.bracketLocked
+                        ? "Belum ada pemain. Bagan sudah ditetapkan, data tidak bisa ditambah."
+                        : "Belum ada pemain. Masuk ke kelola pemain untuk menambah."}
                     </p>
                   ) : (
                     <ul className="flex max-h-[calc(2.5rem*5+0.375rem*4+1rem)] flex-col gap-1.5 overflow-y-auto rounded-lg border border-[var(--border)] bg-black/20 p-2 pr-1">
@@ -302,7 +310,7 @@ export default async function DashboardPage() {
             <p className="text-sm uppercase tracking-[0.25em] text-[var(--accent)]">
               {bracketTournament?.competitionFormat === "single_round_robin" ||
               bracketTournament?.competitionFormat === "double_round_robin"
-                ? "Sistem liga"
+                ? "Sistem liga (fase grup)"
                 : "Sistem gugur"}
             </p>
             <h2 className="mt-1 font-[family-name:var(--font-display)] text-3xl tracking-wide text-white sm:text-4xl">

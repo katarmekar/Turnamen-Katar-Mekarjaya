@@ -145,8 +145,9 @@ export function TournamentPickList({
               Hapus turnamen?
             </h2>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Semua data terkait (tim, pembayaran, bagan, jadwal) akan ikut
-              terhapus dan tidak bisa dikembalikan.
+              Semua data terkait (tim, pembayaran, pemain, dokumen, bagan,
+              jadwal, file) akan ikut terhapus dan tidak bisa dikembalikan.
+              Akun login user tidak dihapus.
             </p>
             <p className="mt-3 text-sm text-white">
               Ketik nama turnamen{" "}

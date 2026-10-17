@@ -20,7 +20,18 @@ export type StandingRow = {
   points: number;
 };
 
-export function computeStandings(matches: MatchForStandings[]): StandingRow[] {
+export type ComputeStandingsOptions = {
+  /** Default 2 (sistem liga lokal). FIFA biasanya 3. */
+  pointsWin?: number;
+  pointsDraw?: number;
+};
+
+export function computeStandings(
+  matches: MatchForStandings[],
+  options: ComputeStandingsOptions = {}
+): StandingRow[] {
+  const pointsWin = options.pointsWin ?? 2;
+  const pointsDraw = options.pointsDraw ?? 1;
   const map = new Map<string, StandingRow>();
 
   const ensure = (id: string, name: string) => {
@@ -62,16 +73,16 @@ export function computeStandings(matches: MatchForStandings[]): StandingRow[] {
     if (m.winnerTeamId === aId) {
       a.won += 1;
       b.lost += 1;
-      a.points += 3;
+      a.points += pointsWin;
     } else if (m.winnerTeamId === bId) {
       b.won += 1;
       a.lost += 1;
-      b.points += 3;
+      b.points += pointsWin;
     } else {
       a.drawn += 1;
       b.drawn += 1;
-      a.points += 1;
-      b.points += 1;
+      a.points += pointsDraw;
+      b.points += pointsDraw;
     }
   }
 

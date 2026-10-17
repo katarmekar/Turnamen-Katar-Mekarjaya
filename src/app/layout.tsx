@@ -14,8 +14,8 @@ const body = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Turnamen Bola",
-  description: "Pendaftaran dan bagan turnamen bola",
+  title: "MekarJaya Turnamen",
+  description: "Pendaftaran dan bagan MekarJaya Turnamen",
 };
 
 export default function RootLayout({

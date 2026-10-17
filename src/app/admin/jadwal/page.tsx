@@ -5,6 +5,7 @@ import { submitScore, updateMatchSchedule } from "@/app/actions/admin";
 import { requireSelectedTournament } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
 import { RESULT_TYPE_LABEL } from "@/lib/format";
+import { groupLetter, isLeagueFormat } from "@/lib/league";
 import { prisma } from "@/lib/prisma";
 
 export default async function AdminJadwalPage() {
@@ -38,15 +39,19 @@ export default async function AdminJadwalPage() {
         ) : (
           <div className="mt-6 space-y-4">
             {matches.map((m) => {
-              const isRr =
-                tournament.competitionFormat === "single_round_robin" ||
-                tournament.competitionFormat === "double_round_robin";
+              const isRr = isLeagueFormat(tournament.competitionFormat);
               const nameA = m.slotA.isBye
                 ? "BYE"
                 : (m.slotA.team?.name ?? "TBD");
               const nameB = m.slotB.isBye
                 ? "BYE"
                 : (m.slotB.team?.name ?? "TBD");
+              const phaseLabel =
+                m.groupIndex != null
+                  ? `Grup ${groupLetter(m.groupIndex)}`
+                  : m.round >= 10
+                    ? "Fase gugur"
+                    : `Round ${m.round}`;
               const bothReady = Boolean(m.slotA.teamId && m.slotB.teamId);
               const bothBye = m.slotA.isBye && m.slotB.isBye;
               const hasTbd =
@@ -71,7 +76,8 @@ export default async function AdminJadwalPage() {
               return (
                 <div key={m.id} className="panel p-5">
                   <p className="text-xs uppercase tracking-wider text-[var(--muted)]">
-                    Round {m.round}
+                    {phaseLabel}
+                    {m.notes ? ` · ${m.notes}` : ""}
                   </p>
                   <p className="mt-1 text-lg font-medium text-white">
                     {nameA} <span className="text-[var(--muted)]">vs</span> {nameB}

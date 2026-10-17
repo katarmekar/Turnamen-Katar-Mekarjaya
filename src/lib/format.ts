@@ -28,8 +28,8 @@ export const RESULT_TYPE_LABEL: Record<string, string> = {
 
 export const COMPETITION_FORMAT_LABEL: Record<string, string> = {
   knockout: "Sistem gugur",
-  single_round_robin: "Sistem liga — setengah kompetisi (1×)",
-  double_round_robin: "Sistem liga — kompetisi penuh (2×)",
+  single_round_robin: "Sistem liga — fase grup (1×)",
+  double_round_robin: "Sistem liga — fase grup (2×)",
 };
 
 /** Normalisasi nomor HP Indonesia ke format wa.me (62...). */
