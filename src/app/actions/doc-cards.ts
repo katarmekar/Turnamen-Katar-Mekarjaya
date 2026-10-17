@@ -95,12 +95,12 @@ export async function deleteDocCard(
   return { success: "Kartu dihapus." };
 }
 
-export async function seedDefaultDocCards(): Promise<ActionState> {
+/** Dipakai sebagai <form action> — harus Promise<void>, bukan ActionState. */
+export async function seedDefaultDocCards(_formData?: FormData): Promise<void> {
   await requireRole("admin");
   const tournament = await requireSelectedTournament();
   await ensureDefaultDocCards(tournament.id);
   revalidatePath("/admin/dokumen");
-  return { success: "Kartu default ditambahkan (jika belum ada)." };
 }
 
 export async function saveMinPlayerDocuments(

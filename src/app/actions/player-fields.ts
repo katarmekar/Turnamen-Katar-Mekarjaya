@@ -116,10 +116,12 @@ export async function deletePlayerField(
   return { success: "Field dihapus." };
 }
 
-export async function seedDefaultPlayerFields(): Promise<ActionState> {
+/** Dipakai sebagai <form action> — harus Promise<void>, bukan ActionState. */
+export async function seedDefaultPlayerFields(
+  _formData?: FormData
+): Promise<void> {
   await requireRole("admin");
   const tournament = await requireSelectedTournament();
   await ensureDefaultPlayerFields(tournament.id);
   revalidatePath("/admin/form-pemain");
-  return { success: "Field default ditambahkan (jika belum ada)." };
 }
