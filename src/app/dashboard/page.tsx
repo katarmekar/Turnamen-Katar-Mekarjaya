@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
+import { TournamentBracketView } from "@/components/tournament-bracket-view";
 import { requireProfile } from "@/lib/auth";
-import { TEAM_STATUS_LABEL } from "@/lib/format";
+import { ROLE_LABEL, TEAM_STATUS_LABEL } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
+import { getTournamentForBracket } from "@/lib/tournament-bracket";
 
 function formatSchedule(d: Date) {
   return new Intl.DateTimeFormat("id-ID", {
@@ -25,56 +27,73 @@ export default async function DashboardPage() {
 
   const teams = await prisma.team.findMany({
     where: { captainId: profile.id },
-    include: { tournament: true },
+    include: {
+      tournament: true,
+      players: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          fullName: true,
+          jerseyNumber: true,
+          position: true,
+        },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
   const team = teams[0] ?? null;
+  const confirmedTeams = teams.filter((t) => t.status === "confirmed");
 
-  const openCount = await prisma.tournament.count({
-    where: {
-      status: "open",
-      NOT: {
-        id: { in: teams.map((t) => t.tournamentId) },
+  const [openCount, matches, bracketTournament] = await Promise.all([
+    prisma.tournament.count({
+      where: {
+        status: "open",
+        NOT: {
+          id: { in: teams.map((t) => t.tournamentId) },
+        },
       },
-    },
-  });
-
-  const matches = team
-    ? await prisma.match.findMany({
-        where: {
-          OR: [
-            { slotA: { teamId: team.id } },
-            { slotB: { teamId: team.id } },
-          ],
-        },
-        include: {
-          slotA: { include: { team: true } },
-          slotB: { include: { team: true } },
-          winnerTeam: true,
-        },
-        orderBy: [{ scheduledAt: "asc" }, { round: "asc" }],
-        take: 8,
-      })
-    : [];
+    }),
+    team
+      ? prisma.match.findMany({
+          where: {
+            OR: [
+              { slotA: { teamId: team.id } },
+              { slotB: { teamId: team.id } },
+            ],
+          },
+          include: {
+            slotA: { include: { team: true } },
+            slotB: { include: { team: true } },
+            winnerTeam: true,
+          },
+          orderBy: [{ scheduledAt: "asc" }, { round: "asc" }],
+          take: 8,
+        })
+      : Promise.resolve([]),
+    getTournamentForBracket(team?.tournamentId),
+  ]);
 
   return (
     <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} />
-      <main className="mx-auto max-w-6xl px-4 py-10">
+      <SiteHeader profile={profile} compactNav />
+      <main className="mx-auto max-w-[90rem] px-4 py-10">
         <h1 className="font-[family-name:var(--font-display)] text-5xl tracking-wide text-white">
-          Dashboard kapten
+          Dashboard manajer
         </h1>
         <p className="mt-2 text-[var(--muted)]">
-          Halo, {profile.fullName ?? "Kapten"}.
+          Halo, {profile.fullName ?? "Manajer"}. Kelola tim dan pantau bagan
+          turnamen di satu tempat.
         </p>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
+        <div className="mt-8 grid gap-4 lg:grid-cols-2">
           <div className="panel p-6">
             <h2 className="text-lg font-semibold text-white">Status akun</h2>
             <dl className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between gap-4">
                 <dt className="text-[var(--muted)]">Peran</dt>
-                <dd className="capitalize text-white">{profile.role}</dd>
+                <dd className="text-white">
+                  {ROLE_LABEL[profile.role] ?? profile.role}
+                </dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-[var(--muted)]">Telepon</dt>
@@ -147,7 +166,7 @@ export default async function DashboardPage() {
           </div>
 
           <div className="panel p-6">
-            <h2 className="text-lg font-semibold text-white">Tim Anda</h2>
+            <h2 className="text-lg font-semibold text-white">Tim & pembayaran</h2>
             {teams.length > 0 ? (
               <>
                 <ul className="mt-4 space-y-3">
@@ -161,35 +180,23 @@ export default async function DashboardPage() {
                         {t.tournament.name} · {t.city ?? "—"} ·{" "}
                         {TEAM_STATUS_LABEL[t.status] ?? t.status}
                       </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <Link
-                          href={`/dashboard/tim?teamId=${t.id}`}
-                          className="text-xs text-[var(--accent)] hover:underline"
-                        >
-                          Pembayaran
-                        </Link>
-                        {t.status === "confirmed" && (
-                          <Link
-                            href={`/dashboard/pemain?teamId=${t.id}`}
-                            className="text-xs text-[var(--accent)] hover:underline"
-                          >
-                            Pemain & berkas
-                          </Link>
-                        )}
-                      </div>
+                      <Link
+                        href={`/dashboard/tim?teamId=${t.id}`}
+                        className="mt-3 inline-flex rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white transition hover:border-[var(--accent)]/40 hover:bg-white/10"
+                      >
+                        Kelola pembayaran
+                      </Link>
                     </li>
                   ))}
                 </ul>
-                <div className="mt-6 flex flex-wrap gap-3">
-                  {openCount > 0 && (
-                    <Link
-                      href="/dashboard/daftar-tim"
-                      className="btn-ghost border border-white/15"
-                    >
-                      Daftar ke turnamen lain
-                    </Link>
-                  )}
-                </div>
+                {openCount > 0 && (
+                  <Link
+                    href="/dashboard/daftar-tim"
+                    className="btn-ghost mt-6 inline-flex border border-white/15"
+                  >
+                    Daftar ke turnamen lain
+                  </Link>
+                )}
               </>
             ) : (
               <>
@@ -207,6 +214,111 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
+
+        <div className="panel mt-4 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-white">Pemain</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Lihat daftar nama di sini. Tambah, edit, atau hapus lewat kelola
+                pemain.
+              </p>
+            </div>
+            {confirmedTeams[0] && (
+              <Link
+                href={`/dashboard/pemain?teamId=${confirmedTeams[0].id}`}
+                className="btn-primary shrink-0"
+              >
+                Kelola pemain
+              </Link>
+            )}
+          </div>
+
+          {teams.length === 0 ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">
+              Daftarkan tim terlebih dahulu.
+            </p>
+          ) : confirmedTeams.length === 0 ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">
+              Daftar pemain tersedia setelah pembayaran dikonfirmasi admin.
+            </p>
+          ) : (
+            <div className="mt-4 space-y-4">
+              {confirmedTeams.map((t) => (
+                <div key={t.id}>
+                  {confirmedTeams.length > 1 && (
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-white">{t.name}</p>
+                      <Link
+                        href={`/dashboard/pemain?teamId=${t.id}`}
+                        className="text-xs text-[var(--accent)] hover:underline"
+                      >
+                        Kelola
+                      </Link>
+                    </div>
+                  )}
+                  <p className="mb-2 text-xs text-[var(--muted)]">
+                    {t.players.length} / {t.tournament.maxPlayersPerTeam} pemain
+                  </p>
+                  {t.players.length === 0 ? (
+                    <p className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-4 text-sm text-[var(--muted)]">
+                      Belum ada pemain. Masuk ke kelola pemain untuk menambah.
+                    </p>
+                  ) : (
+                    <ul className="flex max-h-[calc(2.5rem*5+0.375rem*4+1rem)] flex-col gap-1.5 overflow-y-auto rounded-lg border border-[var(--border)] bg-black/20 p-2 pr-1">
+                      {t.players.map((p, index) => (
+                        <li
+                          key={p.id}
+                          className="flex h-10 shrink-0 items-center gap-3 rounded-md px-2.5 text-sm"
+                        >
+                          <span className="w-6 shrink-0 text-[var(--muted)]">
+                            {index + 1}.
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-white">
+                            {p.fullName}
+                          </span>
+                          {p.jerseyNumber != null && (
+                            <span className="shrink-0 text-[var(--muted)]">
+                              #{p.jerseyNumber}
+                            </span>
+                          )}
+                          {p.position && (
+                            <span className="hidden shrink-0 text-[var(--muted)] sm:inline">
+                              {p.position}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <section id="bagan" className="mt-10 scroll-mt-8">
+          <div className="mb-4">
+            <p className="text-sm uppercase tracking-[0.25em] text-[var(--accent)]">
+              {bracketTournament?.competitionFormat === "single_round_robin" ||
+              bracketTournament?.competitionFormat === "double_round_robin"
+                ? "Sistem liga"
+                : "Sistem gugur"}
+            </p>
+            <h2 className="mt-1 font-[family-name:var(--font-display)] text-3xl tracking-wide text-white sm:text-4xl">
+              Bagan pertandingan
+            </h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              {bracketTournament
+                ? `Turnamen: ${bracketTournament.name}`
+                : "Belum ada turnamen aktif untuk ditampilkan."}
+            </p>
+          </div>
+          <TournamentBracketView
+            tournament={bracketTournament}
+            showHeading={false}
+          />
+        </section>
       </main>
     </div>
   );

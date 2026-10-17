@@ -48,6 +48,11 @@ export default async function AdminPanelPage() {
       desc: "Ubah nama, biaya, status, format",
     },
     {
+      href: "/admin/pemain",
+      title: "Pemain & berkas",
+      desc: "Lihat nama pemain tiap tim dan berkas upload",
+    },
+    {
       href: "/admin/dokumen",
       title: "Kelola kartu dokumen",
       desc: "Kartu identitas pemain (custom)",
@@ -61,7 +66,7 @@ export default async function AdminPanelPage() {
 
   return (
     <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} />
+      <SiteHeader profile={profile} showBagan />
       <main className="mx-auto max-w-6xl px-4 py-10">
         <AdminSectionNav homeHref="/admin" />
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
@@ -87,34 +92,43 @@ export default async function AdminPanelPage() {
           </form>
         </div>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          <div className="panel p-5">
-            <p className="text-sm text-[var(--muted)]">Total tim</p>
-            <p className="mt-1 text-3xl font-semibold text-white">{teamCount}</p>
-          </div>
-          <div className="panel p-5">
-            <p className="text-sm text-[var(--muted)]">Confirmed</p>
-            <p className="mt-1 text-3xl font-semibold text-white">{confirmed}</p>
-          </div>
-          <div className="panel p-5">
-            <p className="text-sm text-[var(--muted)]">Menunggu bayar</p>
-            <p className="mt-1 text-3xl font-semibold text-white">
-              {awaitingPayment}
-            </p>
-          </div>
+        <div className="mt-8 grid gap-3 sm:grid-cols-3">
+          {[
+            { label: "Total tim", value: teamCount },
+            { label: "Confirmed", value: confirmed },
+            { label: "Menunggu bayar", value: awaitingPayment },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="select-none rounded-lg border border-dashed border-white/10 bg-white/[0.03] px-4 py-3"
+              aria-label={`${stat.label}: ${stat.value}`}
+            >
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">
+                {stat.label}
+              </p>
+              <p className="mt-1 font-[family-name:var(--font-display)] text-3xl tracking-wide text-white/90 tabular-nums">
+                {stat.value}
+              </p>
+            </div>
+          ))}
         </div>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {links.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="panel block p-5 transition hover:border-sky-400/50"
-            >
-              <p className="font-medium text-white">{item.title}</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">{item.desc}</p>
-            </Link>
-          ))}
+        <div className="mt-12">
+          <p className="mb-4 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+            Menu kelola
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {links.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="panel block p-5 transition hover:border-sky-400/50"
+              >
+                <p className="font-medium text-white">{item.title}</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">{item.desc}</p>
+              </Link>
+            ))}
+          </div>
         </div>
       </main>
     </div>

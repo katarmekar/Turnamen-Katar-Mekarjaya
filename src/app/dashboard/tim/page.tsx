@@ -48,7 +48,7 @@ export default async function TimPage({
 
   const waHref = whatsappChatHref(
     t.adminWhatsapp,
-    `Halo Admin, saya kapten tim "${team.name}" (${t.name}). Bukti transfer sudah diupload. Mohon dikonfirmasi. Terima kasih.`
+    `Halo Admin, saya manajer tim "${team.name}" (${t.name}). Bukti transfer sudah diupload. Mohon dikonfirmasi. Terima kasih.`
   );
   const waDisplay = t.adminWhatsapp?.trim() || null;
   const waNormalized = toWhatsappNumber(t.adminWhatsapp);

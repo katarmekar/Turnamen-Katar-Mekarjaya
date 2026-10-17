@@ -3,6 +3,7 @@ import { AdminSectionNav } from "@/components/admin-section-nav";
 import { SiteHeader } from "@/components/site-header";
 import { ActionForm } from "@/components/action-form-status";
 import { saveTournament } from "@/app/actions/admin";
+import { getSelectedTournamentId } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
 import { COMPETITION_FORMAT_LABEL, formatIdr } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
@@ -16,10 +17,13 @@ export default async function AdminTurnamenPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const isNew = params.baru === "1" || params.baru === "true";
 
-  const tournaments = await prisma.tournament.findMany({
-    orderBy: { createdAt: "desc" },
-    include: { _count: { select: { teams: true } } },
-  });
+  const [tournaments, selectedId] = await Promise.all([
+    prisma.tournament.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { _count: { select: { teams: true } } },
+    }),
+    getSelectedTournamentId(),
+  ]);
 
   const editing = !isNew && params.id
     ? tournaments.find((t) => t.id === params.id) ?? null
@@ -30,14 +34,14 @@ export default async function AdminTurnamenPage({ searchParams }: PageProps) {
 
   return (
     <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} />
+      <SiteHeader profile={profile} showBagan={!!selectedId} />
       <main className="mx-auto max-w-3xl px-4 py-10">
         <AdminSectionNav homeHref="/admin" />
         <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
           <h1 className="font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-            Kelola turnamen
+            {active ? "Edit turnamen" : "Kelola turnamen"}
           </h1>
-          {!isNew && (
+          {!isNew && !active && (
             <Link href="/admin/turnamen?baru=1" className="btn-primary">
               Tambah turnamen
             </Link>
@@ -111,6 +115,32 @@ export default async function AdminTurnamenPage({ searchParams }: PageProps) {
                   </option>
                 </select>
               </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-[var(--muted)]">
+                  Maks. pemain per tim
+                </span>
+                <input
+                  name="max_players_per_team"
+                  type="number"
+                  min={1}
+                  max={50}
+                  className="input"
+                  defaultValue={active?.maxPlayersPerTeam ?? 18}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-[var(--muted)]">
+                  Min. pemain per tim
+                </span>
+                <input
+                  name="min_players_per_team"
+                  type="number"
+                  min={0}
+                  max={50}
+                  className="input"
+                  defaultValue={active?.minPlayersPerTeam ?? 11}
+                />
+              </label>
               <label className="flex flex-col gap-1 text-sm sm:col-span-2">
                 <span className="text-[var(--muted)]">Status</span>
                 <select
@@ -125,7 +155,7 @@ export default async function AdminTurnamenPage({ searchParams }: PageProps) {
                 </select>
               </label>
               <label className="flex flex-col gap-1 text-sm">
-                <span className="text-[var(--muted)]">Biaya (Rp)</span>
+                <span className="text-[var(--muted)]">Biaya pendaftaran</span>
                 <input
                   name="registration_fee"
                   type="number"
@@ -159,7 +189,7 @@ export default async function AdminTurnamenPage({ searchParams }: PageProps) {
               </label>
               <label className="flex flex-col gap-1 text-sm sm:col-span-2">
                 <span className="text-[var(--muted)]">
-                  WhatsApp admin (untuk chat kapten)
+                  WhatsApp admin (untuk chat manajer)
                 </span>
                 <input
                   name="admin_whatsapp"
@@ -169,7 +199,7 @@ export default async function AdminTurnamenPage({ searchParams }: PageProps) {
                   defaultValue={active?.adminWhatsapp ?? ""}
                 />
                 <span className="text-xs text-[var(--muted)]">
-                  Nomor ini muncul di tombol WhatsApp saat kapten menunggu
+                  Nomor ini muncul di tombol WhatsApp saat manajer menunggu
                   konfirmasi pembayaran.
                 </span>
               </label>
@@ -180,49 +210,56 @@ export default async function AdminTurnamenPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        <div className="mt-6 space-y-3">
-          <p className="text-xs uppercase tracking-wider text-[var(--muted)]">
-            Daftar turnamen ({tournaments.length})
-          </p>
-          {tournaments.length === 0 && (
-            <p className="text-sm text-[var(--muted)]">Belum ada turnamen.</p>
-          )}
-          {tournaments.map((t) => (
-            <div
-              key={t.id}
-              className="panel flex flex-wrap items-center justify-between gap-3 p-4 text-sm"
-            >
-              <div>
-                <p className="font-medium text-white">{t.name}</p>
-                <p className="text-[var(--muted)]">
-                  {t.status} ·{" "}
-                  {COMPETITION_FORMAT_LABEL[t.competitionFormat] ??
-                    t.competitionFormat}{" "}
-                  · {formatIdr(t.registrationFee)} · {t._count.teams} tim · max{" "}
-                  {t.maxTeams}
-                  {t.adminWhatsapp ? ` · WA ${t.adminWhatsapp}` : " · WA belum diisi"}
-                </p>
-              </div>
-              <Link
-                href={`/admin/turnamen?id=${t.id}`}
-                className="btn-ghost border border-white/15"
-              >
-                Edit
-              </Link>
+        {!active && (
+          <>
+            <div className="mt-6 space-y-3">
+              <p className="text-xs uppercase tracking-wider text-[var(--muted)]">
+                Daftar turnamen ({tournaments.length})
+              </p>
+              {tournaments.length === 0 && (
+                <p className="text-sm text-[var(--muted)]">Belum ada turnamen.</p>
+              )}
+              {tournaments.map((t) => (
+                <div
+                  key={t.id}
+                  className="panel flex flex-wrap items-center justify-between gap-3 p-4 text-sm"
+                >
+                  <div>
+                    <p className="font-medium text-white">{t.name}</p>
+                    <p className="text-[var(--muted)]">
+                      {t.status} ·{" "}
+                      {COMPETITION_FORMAT_LABEL[t.competitionFormat] ??
+                        t.competitionFormat}{" "}
+                      · {formatIdr(t.registrationFee)} · {t._count.teams} tim · max{" "}
+                      {t.maxTeams} · pemain {t.minPlayersPerTeam}–
+                      {t.maxPlayersPerTeam}
+                      {t.adminWhatsapp
+                        ? ` · WA ${t.adminWhatsapp}`
+                        : " · WA belum diisi"}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/admin/turnamen?id=${t.id}`}
+                    className="btn-ghost border border-white/15"
+                  >
+                    Edit
+                  </Link>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {tournaments.length > 0 && (
-          <p className="mt-8 text-center text-sm text-[var(--muted)]">
-            Selesai kelola?{" "}
-            <Link
-              href="/admin/pilih"
-              className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
-            >
-              Pilih turnamen →
-            </Link>
-          </p>
+            {tournaments.length > 0 && (
+              <p className="mt-8 text-center text-sm text-[var(--muted)]">
+                Selesai kelola?{" "}
+                <Link
+                  href="/admin/pilih"
+                  className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
+                >
+                  Pilih turnamen →
+                </Link>
+              </p>
+            )}
+          </>
         )}
       </main>
     </div>

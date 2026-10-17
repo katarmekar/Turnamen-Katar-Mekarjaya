@@ -20,6 +20,7 @@ export type RosterPlayer = {
   identityNumber: string | null;
   jerseyNumber: number | null;
   position: string | null;
+  photoUrl: string | null;
   extraData: Record<string, string>;
   documents: { id: string; docType: string }[];
 };
@@ -103,6 +104,26 @@ function EditPlayerForm({
             </label>
           );
         })}
+        <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <span className="text-[var(--muted)]">
+            Foto pemain (opsional)
+            {player.photoUrl ? " — ganti jika perlu" : ""}
+          </span>
+          {player.photoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={player.photoUrl}
+              alt={player.fullName}
+              className="mb-1 size-14 rounded-md object-cover"
+            />
+          )}
+          <input
+            name="photo"
+            type="file"
+            accept="image/*"
+            className="input py-1.5"
+          />
+        </label>
       </div>
       {state.error && (
         <p className="text-xs text-red-300">{state.error}</p>
@@ -261,6 +282,7 @@ export function PlayersRosterTable({
         <thead>
           <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-[var(--muted)]">
             <th className="px-4 py-3 font-medium">No</th>
+            <th className="px-4 py-3 font-medium">Foto</th>
             <th className="px-4 py-3 font-medium">Nama</th>
             <th className="px-4 py-3 font-medium">Detail</th>
             <th className="px-4 py-3 font-medium">Berkas</th>
@@ -299,6 +321,20 @@ export function PlayersRosterTable({
             return (
               <tr key={player.id} className="border-b border-white/5 align-top">
                 <td className="px-4 py-3 text-[var(--muted)]">{i + 1}</td>
+                <td className="px-4 py-3">
+                  {player.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={player.photoUrl}
+                      alt={player.fullName}
+                      className="size-10 rounded-md object-cover"
+                    />
+                  ) : (
+                    <span className="inline-flex size-10 items-center justify-center rounded-md border border-white/10 text-[10px] text-[var(--muted)]">
+                      —
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 font-medium text-white">
                   {player.fullName}
                   {isEditing && (

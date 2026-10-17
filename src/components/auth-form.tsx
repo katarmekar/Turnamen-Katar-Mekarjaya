@@ -29,7 +29,7 @@ export function AuthForm({ mode, action, nextPath }: AuthFormProps) {
               required
               autoComplete="name"
               className="input"
-              placeholder="Nama kapten tim"
+              placeholder="Nama manajer tim"
             />
           </label>
           <label className="flex flex-col gap-1.5 text-sm">

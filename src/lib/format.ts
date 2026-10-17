@@ -14,6 +14,12 @@ export const TEAM_STATUS_LABEL: Record<string, string> = {
   rejected: "Bukti ditolak — upload ulang",
 };
 
+/** Label tampilan peran (nilai DB tetap captain/admin). */
+export const ROLE_LABEL: Record<string, string> = {
+  admin: "Admin",
+  captain: "Manajer",
+};
+
 export const RESULT_TYPE_LABEL: Record<string, string> = {
   score: "Skor",
   wo: "WO",

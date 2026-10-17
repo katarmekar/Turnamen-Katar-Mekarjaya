@@ -172,7 +172,7 @@ async function main() {
       }
 
       const captainId = randomUUID();
-      const fullName = `Kapten ${t.name}`;
+      const fullName = `Manajer ${t.name}`;
       const email = slugEmail(t.name, i);
 
       await ensureAuthUser(prisma, captainId, email, fullName);

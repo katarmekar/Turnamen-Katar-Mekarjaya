@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { getCurrentProfile } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +10,9 @@ export default async function HomePage() {
 
   try {
     profile = await getCurrentProfile();
+    if (profile?.role === "admin") redirect("/admin");
+    if (profile?.role === "captain") redirect("/dashboard");
+
     openTournament = await prisma.tournament.findFirst({
       where: { status: { in: ["open", "ongoing"] } },
       orderBy: { createdAt: "desc" },
@@ -32,21 +36,11 @@ export default async function HomePage() {
             "Daftarkan tim, unggah bukti pembayaran, lengkapi data pemain, dan ikuti bagan pertandingan secara langsung."}
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
-          {profile?.role === "admin" ? (
-            <Link href="/admin" className="btn-primary">
-              Buka panel admin
-            </Link>
-          ) : profile?.role === "captain" ? (
-            <Link href="/dashboard" className="btn-primary">
-              Buka dashboard
-            </Link>
-          ) : (
-            <Link href="/register" className="btn-primary">
-              Daftar akun kapten
-            </Link>
-          )}
-          <Link href="/bagan" className="btn-ghost border border-white/15">
-            Lihat bagan
+          <Link href="/register" className="btn-primary">
+            Daftar akun manajer
+          </Link>
+          <Link href="/login" className="btn-ghost border border-white/15">
+            Masuk
           </Link>
         </div>
       </main>

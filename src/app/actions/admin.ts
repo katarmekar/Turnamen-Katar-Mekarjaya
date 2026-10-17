@@ -167,7 +167,7 @@ export async function rejectPayment(
 
   revalidatePath("/admin/pembayaran");
   revalidatePath("/dashboard/tim");
-  return { success: "Pembayaran ditolak. Kapten dapat upload ulang." };
+  return { success: "Pembayaran ditolak. Manajer dapat upload ulang." };
 }
 
 export async function saveTournament(
@@ -179,6 +179,8 @@ export async function saveTournament(
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const maxTeams = Number(formData.get("max_teams") ?? 16);
+  const maxPlayersPerTeam = Number(formData.get("max_players_per_team") ?? 18);
+  const minPlayersPerTeam = Number(formData.get("min_players_per_team") ?? 11);
   const fee = Number(formData.get("registration_fee") ?? 0);
   const bankName = String(formData.get("bank_name") ?? "").trim();
   const bankAccountNumber = String(
@@ -202,6 +204,24 @@ export async function saveTournament(
   }
 
   if (
+    !Number.isFinite(maxPlayersPerTeam) ||
+    maxPlayersPerTeam < 1 ||
+    maxPlayersPerTeam > 50
+  ) {
+    return { error: "Maksimal pemain per tim harus antara 1–50." };
+  }
+
+  if (
+    !Number.isFinite(minPlayersPerTeam) ||
+    minPlayersPerTeam < 0 ||
+    minPlayersPerTeam > maxPlayersPerTeam
+  ) {
+    return {
+      error: "Minimal pemain per tim harus 0–maksimal, dan tidak melebihi max.",
+    };
+  }
+
+  if (
     !["knockout", "single_round_robin", "double_round_robin"].includes(
       competitionFormat
     )
@@ -217,6 +237,8 @@ export async function saveTournament(
     name,
     description: description || null,
     maxTeams,
+    maxPlayersPerTeam,
+    minPlayersPerTeam,
     registrationFee: fee,
     bankName: bankName || null,
     bankAccountNumber: bankAccountNumber || null,

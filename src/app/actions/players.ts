@@ -106,6 +106,43 @@ function parsePlayerFromForm(
   };
 }
 
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Upload foto pemain opsional. Return path baru, atau null jika tidak ada file. */
+async function uploadOptionalPlayerPhoto(
+  formData: FormData,
+  teamId: string,
+  playerId: string
+): Promise<{ path?: string | null; error?: string }> {
+  const file = formData.get("photo") as File | null;
+  if (!file || file.size === 0) {
+    return { path: null };
+  }
+  if (!file.type.startsWith("image/")) {
+    return { error: "Foto pemain harus berupa gambar." };
+  }
+  if (file.size > PHOTO_MAX_BYTES) {
+    return { error: "Foto pemain maksimal 5 MB." };
+  }
+
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const safeExt = ["jpg", "jpeg", "png", "webp", "gif"].includes(ext)
+    ? ext
+    : "jpg";
+  const path = `${teamId}/${playerId}/_photo.${safeExt}`;
+
+  const uploaded = await uploadPrivateFile({
+    bucket: "player-docs",
+    path,
+    file,
+    upsert: true,
+  });
+  if ("error" in uploaded) {
+    return { error: `Upload foto gagal: ${uploaded.error}` };
+  }
+  return { path };
+}
+
 export async function addPlayer(
   _prev: ActionState,
   formData: FormData
@@ -150,7 +187,20 @@ export async function addPlayer(
     },
   });
 
+  const photo = await uploadOptionalPlayerPhoto(formData, teamId, player.id);
+  if (photo.error) {
+    await prisma.player.delete({ where: { id: player.id } }).catch(() => {});
+    return { error: photo.error };
+  }
+  if (photo.path) {
+    await prisma.player.update({
+      where: { id: player.id },
+      data: { photoPath: photo.path },
+    });
+  }
+
   revalidatePath("/dashboard/pemain");
+  revalidatePath("/dashboard");
   return {
     success: "Pemain disimpan. Lanjut upload berkas.",
     playerId: player.id,
@@ -189,6 +239,11 @@ export async function updatePlayer(
     return { error: parsed.error ?? "Data pemain tidak valid." };
   }
 
+  const photo = await uploadOptionalPlayerPhoto(formData, teamId, playerId);
+  if (photo.error) {
+    return { error: photo.error };
+  }
+
   await prisma.player.update({
     where: { id: playerId },
     data: {
@@ -200,10 +255,12 @@ export async function updatePlayer(
         Object.keys(parsed.data.extraData).length > 0
           ? (parsed.data.extraData as Prisma.InputJsonValue)
           : Prisma.JsonNull,
+      ...(photo.path ? { photoPath: photo.path } : {}),
     },
   });
 
   revalidatePath("/dashboard/pemain");
+  revalidatePath("/dashboard");
   return { success: "Data pemain diperbarui.", playerId };
 }
 
@@ -423,6 +480,18 @@ export async function addPlayerWithDocuments(
     },
   });
 
+  const photo = await uploadOptionalPlayerPhoto(formData, teamId, player.id);
+  if (photo.error) {
+    await prisma.player.delete({ where: { id: player.id } }).catch(() => {});
+    return { error: photo.error };
+  }
+  if (photo.path) {
+    await prisma.player.update({
+      where: { id: player.id },
+      data: { photoPath: photo.path },
+    });
+  }
+
   for (const doc of docs) {
     const ext = doc.file.name.split(".").pop() || "jpg";
     const path = `${teamId}/${player.id}/${doc.docType}.${ext}`;
@@ -446,6 +515,7 @@ export async function addPlayerWithDocuments(
   }
 
   revalidatePath("/dashboard/pemain");
+  revalidatePath("/dashboard");
   return {
     playerId: player.id,
     success: `Pemain ${parsed.data.fullName} dan ${docs.length} berkas berhasil disimpan.`,

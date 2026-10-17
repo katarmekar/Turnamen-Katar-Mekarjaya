@@ -23,7 +23,7 @@ export default async function AdminJadwalPage() {
 
   return (
     <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} />
+      <SiteHeader profile={profile} showBagan />
       <main className="mx-auto max-w-4xl px-4 py-10">
         <AdminSectionNav homeHref="/admin/panel" />
         <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">

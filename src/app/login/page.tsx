@@ -18,7 +18,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             Masuk
           </h1>
           <p className="mt-2 mb-6 text-sm text-[var(--muted)]">
-            Masuk sebagai kapten tim atau admin.
+            Masuk sebagai manajer tim atau admin.
           </p>
           <AuthForm mode="login" action={login} nextPath={params.next} />
         </div>

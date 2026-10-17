@@ -114,12 +114,12 @@ export default async function DaftarTimPage({ searchParams }: PageProps) {
               </label>
               <label className="flex flex-col gap-1.5 text-sm">
                 <span className="text-[var(--muted)]">
-                  Nama pelatih / kapten (opsional)
+                  Nama pelatih / manajer (opsional)
                 </span>
                 <input
                   name="coach_name"
                   className="input"
-                  placeholder="Nama pelatih atau kapten"
+                  placeholder="Nama pelatih atau manajer"
                   defaultValue={profile.fullName ?? ""}
                 />
               </label>

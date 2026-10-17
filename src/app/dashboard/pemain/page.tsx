@@ -7,6 +7,8 @@ import { requireProfile } from "@/lib/auth";
 import { ensureDefaultDocCards } from "@/lib/doc-cards";
 import { ensureDefaultPlayerFields } from "@/lib/player-fields";
 import { prisma } from "@/lib/prisma";
+import { createServiceClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function PemainPage({
   searchParams,
@@ -68,12 +70,29 @@ export default async function PemainPage({
       ? `${requiredCount} kartu wajib`
       : `minimal ${team.tournament.minPlayerDocuments} berkas`;
 
+  const service = createServiceClient();
+  const supabase = service ?? (await createClient());
+  const photoUrlByPlayerId = new Map<string, string | null>();
+  await Promise.all(
+    team.players.map(async (p) => {
+      if (!p.photoPath) {
+        photoUrlByPlayerId.set(p.id, null);
+        return;
+      }
+      const { data } = await supabase.storage
+        .from("player-docs")
+        .createSignedUrl(p.photoPath, 3600);
+      photoUrlByPlayerId.set(p.id, data?.signedUrl ?? null);
+    })
+  );
+
   const rosterPlayers = team.players.map((p) => ({
     id: p.id,
     fullName: p.fullName,
     identityNumber: p.identityNumber,
     jerseyNumber: p.jerseyNumber,
     position: p.position,
+    photoUrl: photoUrlByPlayerId.get(p.id) ?? null,
     extraData:
       p.extraData &&
       typeof p.extraData === "object" &&
@@ -105,10 +124,10 @@ export default async function PemainPage({
       <SiteHeader profile={profile} />
       <main className="mx-auto max-w-5xl px-4 py-10">
         <Link
-          href={`/dashboard/tim?teamId=${team.id}`}
+          href="/dashboard"
           className="text-sm text-[var(--muted)] hover:text-white"
         >
-          ← Tim
+          ← Dashboard
         </Link>
         <h1 className="mt-4 font-[family-name:var(--font-display)] text-3xl tracking-wide text-white sm:text-4xl">
           Pemain — {team.name}

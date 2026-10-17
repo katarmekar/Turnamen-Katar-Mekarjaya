@@ -40,7 +40,7 @@ export default async function AdminBaganPage() {
 
   return (
     <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} />
+      <SiteHeader profile={profile} showBagan />
       <main className="mx-auto max-w-[90rem] px-4 py-10">
         <AdminSectionNav homeHref="/admin/panel" />
         <div className="mt-4 flex flex-wrap items-end justify-between gap-3">

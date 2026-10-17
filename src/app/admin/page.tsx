@@ -2,25 +2,16 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { getSelectedTournament } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 
 export default async function AdminHubPage() {
   const profile = await requireRole("admin");
-  const [tournamentCount, selected] = await Promise.all([
-    prisma.tournament.count(),
-    getSelectedTournament(),
-  ]);
+  const selected = await getSelectedTournament();
 
   const links = [
     {
       href: "/admin/turnamen?baru=1",
       title: "Tambah turnamen",
       desc: "Buat turnamen baru (nama, biaya, rekening, kapasitas)",
-    },
-    {
-      href: "/admin/turnamen",
-      title: "Kelola turnamen",
-      desc: `${tournamentCount} turnamen — edit status, biaya, format`,
     },
     {
       href: "/admin/pilih",
@@ -33,14 +24,14 @@ export default async function AdminHubPage() {
 
   return (
     <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} />
+      <SiteHeader profile={profile} showBagan={!!selected} />
       <main className="mx-auto max-w-3xl px-4 py-10">
         <h1 className="font-[family-name:var(--font-display)] text-5xl tracking-wide text-white">
           Panel admin
         </h1>
         <p className="mt-2 text-[var(--muted)]">
-          Halo, {profile.fullName ?? "Admin"}. Mulai dari kelola turnamen, lalu
-          pilih turnamen yang mau dikerjakan.
+          Halo, {profile.fullName ?? "Admin"}. Pilih turnamen yang mau
+          dikerjakan, atau buat turnamen baru.
         </p>
 
         <div className="mt-8 grid gap-4">

@@ -67,7 +67,7 @@ export default async function AdminPembayaranPage() {
 
   return (
     <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} />
+      <SiteHeader profile={profile} showBagan />
       <main className="mx-auto max-w-3xl px-4 py-10">
         <AdminSectionNav homeHref="/admin/panel" />
         <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
@@ -102,12 +102,12 @@ export default async function AdminPembayaranPage() {
                         {team.city ? ` · ${team.city}` : ""}
                       </p>
                       <p className="text-sm text-[var(--muted)]">
-                        Kapten: {team.captain.fullName ?? "—"} ·{" "}
+                        Manajer: {team.captain.fullName ?? "—"} ·{" "}
                         {team.contactPhone ?? "—"}
                       </p>
                       {team.coachName && (
                         <p className="text-sm text-[var(--muted)]">
-                          Pelatih/kapten: {team.coachName}
+                          Pelatih/manajer: {team.coachName}
                         </p>
                       )}
                       {payment && (

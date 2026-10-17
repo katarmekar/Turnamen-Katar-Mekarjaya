@@ -28,14 +28,14 @@ export default async function AdminDokumenPage() {
 
   return (
     <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} />
-      <main className="mx-auto max-w-3xl px-4 py-10">
+      <SiteHeader profile={profile} showBagan />
+      <main className="mx-auto max-w-4xl px-4 py-10">
         <AdminSectionNav homeHref="/admin/panel" />
         <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
           Kelola kartu dokumen
         </h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          {fresh.name} — atur kartu yang muncul saat kapten upload berkas pemain.
+          {fresh.name} — atur kartu yang muncul saat manajer upload berkas pemain.
           Kartu bertanda <strong className="text-white">wajib</strong> harus
           diupload semua. Jika tidak ada yang wajib, dipakai minimal jumlah di
           bawah.
@@ -98,10 +98,6 @@ export default async function AdminDokumenPage() {
                 defaultValue={cards.length}
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-              <span className="text-[var(--muted)]">Deskripsi singkat</span>
-              <input name="description" className="input" />
-            </label>
             <label className="flex items-center gap-2 text-sm sm:col-span-2">
               <input type="checkbox" name="required" className="size-4" />
               <span className="text-[var(--muted)]">Wajib diupload</span>
@@ -112,8 +108,8 @@ export default async function AdminDokumenPage() {
           </ActionForm>
         </div>
 
-        <div className="mt-6 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="mt-6">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs uppercase tracking-wider text-[var(--muted)]">
               Daftar kartu ({cards.length})
             </p>
@@ -127,78 +123,117 @@ export default async function AdminDokumenPage() {
             </form>
           </div>
 
-          {cards.map((card) => (
-            <div key={card.id} className="panel space-y-3 p-4">
-              <ActionForm
-                action={saveDocCard}
-                className="grid gap-3 sm:grid-cols-2"
-              >
-                <input type="hidden" name="id" value={card.id} />
-                <input type="hidden" name="key" value={card.key} />
-                <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-                  <span className="text-[var(--muted)]">
-                    Nama · kode <code className="text-white/70">{card.key}</code>
-                  </span>
-                  <input
-                    name="label"
-                    required
-                    className="input"
-                    defaultValue={card.label}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-                  <span className="text-[var(--muted)]">Deskripsi</span>
-                  <input
-                    name="description"
-                    className="input"
-                    defaultValue={card.description ?? ""}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="text-[var(--muted)]">Urutan</span>
-                  <input
-                    name="sort_order"
-                    type="number"
-                    className="input"
-                    defaultValue={card.sortOrder}
-                  />
-                </label>
-                <div className="flex flex-col gap-2 text-sm justify-end">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="required"
-                      className="size-4"
-                      defaultChecked={card.required}
-                    />
-                    <span className="text-[var(--muted)]">Wajib</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="active"
-                      value="true"
-                      className="size-4"
-                      defaultChecked={card.active}
-                    />
-                    <span className="text-[var(--muted)]">Tampil ke kapten</span>
-                  </label>
-                </div>
-                <button type="submit" className="btn-primary sm:col-span-2">
-                  Simpan perubahan
-                </button>
-              </ActionForm>
-              <ActionForm action={deleteDocCard} className="inline">
-                <input type="hidden" name="id" value={card.id} />
-                <button
-                  type="submit"
-                  className="btn-ghost border border-red-400/40 text-sm text-red-300"
-                >
-                  Hapus kartu
-                </button>
-              </ActionForm>
+          {cards.length === 0 ? (
+            <div className="panel p-6">
+              <p className="text-sm text-[var(--muted)]">Belum ada kartu.</p>
             </div>
-          ))}
+          ) : (
+            <div className="panel overflow-x-auto">
+              <table className="w-full min-w-[36rem] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 text-[var(--muted)]">
+                    <th className="px-3 py-3 font-medium">Nama</th>
+                    <th className="px-3 py-3 font-medium">Kode</th>
+                    <th className="w-20 px-3 py-3 font-medium">Urutan</th>
+                    <th className="w-16 px-3 py-3 text-center font-medium">
+                      Wajib
+                    </th>
+                    <th className="w-16 px-3 py-3 text-center font-medium">
+                      Tampil
+                    </th>
+                    <th className="px-3 py-3 text-right font-medium">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cards.map((card) => {
+                    const formId = `doc-card-${card.id}`;
+                    return (
+                      <tr
+                        key={card.id}
+                        className="border-b border-white/5 last:border-0"
+                      >
+                        <td className="px-3 py-2 align-middle">
+                          <input type="hidden" form={formId} name="id" value={card.id} />
+                          <input type="hidden" form={formId} name="key" value={card.key} />
+                          <input type="hidden" form={formId} name="description" value="" />
+                          <input
+                            form={formId}
+                            name="label"
+                            required
+                            className="input py-1.5"
+                            defaultValue={card.label}
+                            aria-label="Nama kartu"
+                          />
+                        </td>
+                        <td className="px-3 py-2 align-middle">
+                          <code className="text-xs text-[var(--muted)]">
+                            {card.key}
+                          </code>
+                        </td>
+                        <td className="px-3 py-2 align-middle">
+                          <input
+                            form={formId}
+                            name="sort_order"
+                            type="number"
+                            className="input w-16 py-1.5"
+                            defaultValue={card.sortOrder}
+                            aria-label="Urutan"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-center align-middle">
+                          <input
+                            form={formId}
+                            type="checkbox"
+                            name="required"
+                            className="size-4"
+                            defaultChecked={card.required}
+                            aria-label="Wajib"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-center align-middle">
+                          <input
+                            form={formId}
+                            type="checkbox"
+                            name="active"
+                            value="true"
+                            className="size-4"
+                            defaultChecked={card.active}
+                            aria-label="Tampil"
+                          />
+                        </td>
+                        <td className="px-3 py-2 align-middle">
+                          <div className="flex items-center justify-end gap-2">
+                            <ActionForm
+                              action={saveDocCard}
+                              id={formId}
+                              compactStatus
+                              className="inline"
+                            >
+                              <button
+                                type="submit"
+                                className="btn-primary px-2.5 py-1 text-xs"
+                              >
+                                Simpan
+                              </button>
+                            </ActionForm>
+                            <ActionForm action={deleteDocCard}>
+                              <input type="hidden" name="id" value={card.id} />
+                              <button
+                                type="submit"
+                                className="text-xs text-red-300 hover:underline"
+                              >
+                                Hapus
+                              </button>
+                            </ActionForm>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </main>
     </div>

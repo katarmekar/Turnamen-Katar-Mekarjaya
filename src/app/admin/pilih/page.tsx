@@ -19,7 +19,7 @@ export default async function AdminPilihTurnamenPage() {
 
   return (
     <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} />
+      <SiteHeader profile={profile} showBagan={!!selectedId} />
       <main className="mx-auto max-w-3xl px-4 py-10">
         <AdminSectionNav homeHref="/admin" />
         <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">

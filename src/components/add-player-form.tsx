@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   addPlayer,
   addPlayerWithDocuments,
@@ -57,6 +57,16 @@ export function AddPlayerForm({
   const [localError, setLocalError] = useState<string | null>(null);
   const [state, setState] = useState<ActionState>({});
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!state.success) return;
+    const timer = window.setTimeout(() => {
+      setState((prev) =>
+        prev.success ? { ...prev, success: undefined } : prev
+      );
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [state.success]);
 
   const requiredCards = docCards.filter((c) => c.required);
   const neededDocs =
@@ -200,6 +210,18 @@ export function AddPlayerForm({
             </label>
           );
         })}
+        <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <span className="text-[var(--muted)]">Foto pemain (opsional)</span>
+          <input
+            name="photo"
+            type="file"
+            accept="image/*"
+            className="input"
+          />
+          <span className="text-xs text-[var(--muted)]">
+            Format gambar, maksimal 5 MB. Boleh dikosongkan.
+          </span>
+        </label>
       </div>
 
       {docCards.length > 0 && (
@@ -237,47 +259,61 @@ export function AddPlayerForm({
             </ul>
           )}
 
-          {remaining.length > 0 && (
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-              <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
-                <span className="text-[var(--muted)]">
-                  Kartu dokumen {pendingDocs.length + 1}
-                </span>
-                <select
-                  className="input"
-                  value={draftType}
-                  onChange={(e) => setDraftType(e.target.value)}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+            {remaining.length > 0 && (
+              <>
+                <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
+                  <span className="text-[var(--muted)]">
+                    Kartu dokumen {pendingDocs.length + 1}
+                  </span>
+                  <select
+                    className="input"
+                    value={draftType}
+                    onChange={(e) => setDraftType(e.target.value)}
+                  >
+                    <option value="">Pilih kartu…</option>
+                    {remaining.map((c) => (
+                      <option key={c.id} value={c.key}>
+                        {c.label}
+                        {c.required ? " (wajib)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
+                  <span className="text-[var(--muted)]">File</span>
+                  <input
+                    key={`${pendingDocs.length}-${draftType}`}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="input"
+                    onChange={(e) =>
+                      setDraftFile(e.target.files?.[0] ?? null)
+                    }
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={addPendingDoc}
+                  className="btn-ghost shrink-0 border border-white/15"
                 >
-                  <option value="">Pilih kartu…</option>
-                  {remaining.map((c) => (
-                    <option key={c.id} value={c.key}>
-                      {c.label}
-                      {c.required ? " (wajib)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
-                <span className="text-[var(--muted)]">File</span>
-                <input
-                  key={`${pendingDocs.length}-${draftType}`}
-                  type="file"
-                  accept="image/*,application/pdf"
-                  className="input"
-                  onChange={(e) =>
-                    setDraftFile(e.target.files?.[0] ?? null)
-                  }
-                />
-              </label>
-              <button
-                type="button"
-                onClick={addPendingDoc}
-                className="btn-ghost shrink-0 border border-white/15"
-              >
-                Tambah berkas
-              </button>
-            </div>
-          )}
+                  Tambah berkas
+                </button>
+              </>
+            )}
+            <button
+              type="submit"
+              disabled={isPending || !canSave}
+              className="shrink-0 px-1 py-2 text-sm font-bold text-[var(--accent)] underline-offset-4 transition hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline"
+              title={
+                !canSave
+                  ? `Unggah minimal ${neededDocs} berkas dulu`
+                  : undefined
+              }
+            >
+              {isPending ? "Menyimpan…" : "Simpan berkas"}
+            </button>
+          </div>
         </div>
       )}
 
@@ -292,7 +328,7 @@ export function AddPlayerForm({
         </p>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col items-center gap-2">
         <button
           type="submit"
           disabled={isPending || !canSave}
@@ -306,7 +342,7 @@ export function AddPlayerForm({
           {isPending ? "Menyimpan…" : "Simpan pemain"}
         </button>
         {!canSave && docCards.length > 0 && (
-          <span className="text-xs text-[var(--muted)]">
+          <span className="text-center text-xs text-[var(--muted)]">
             Tombol aktif setelah {neededDocs} berkas ditambahkan (
             {pendingDocs.length}/{neededDocs})
           </span>

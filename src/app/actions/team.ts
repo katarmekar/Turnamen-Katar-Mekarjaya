@@ -14,7 +14,7 @@ export async function registerTeam(
 ): Promise<ActionState> {
   const profile = await requireProfile();
   if (profile.role !== "captain") {
-    return { error: "Hanya kapten yang dapat mendaftarkan tim." };
+    return { error: "Hanya manajer yang dapat mendaftarkan tim." };
   }
 
   const tournamentId = String(formData.get("tournament_id") ?? "");
@@ -106,7 +106,7 @@ export async function savePaymentProofMeta(params: {
     return { error: "Data upload tidak lengkap." };
   }
 
-  // Path harus di folder team id milik kapten
+  // Path harus di folder team id milik manajer
   if (!proofPath.startsWith(`${teamId}/`)) {
     return { error: "Path bukti tidak valid." };
   }

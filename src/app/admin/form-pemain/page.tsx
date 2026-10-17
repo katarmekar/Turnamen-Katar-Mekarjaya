@@ -28,7 +28,7 @@ export default async function AdminFormPemainPage() {
 
   return (
     <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} />
+      <SiteHeader profile={profile} showBagan />
       <main className="mx-auto max-w-6xl px-4 py-10">
         <AdminSectionNav homeHref="/admin/panel" />
         <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
@@ -36,7 +36,7 @@ export default async function AdminFormPemainPage() {
         </h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
           {tournament.name} — atur field yang tampil di form “Tambah pemain”
-          kapten. Ubah lalu tekan Simpan di baris yang sama.
+          manajer. Ubah lalu tekan Simpan di baris yang sama.
         </p>
 
         <div className="panel mt-6 overflow-hidden">
