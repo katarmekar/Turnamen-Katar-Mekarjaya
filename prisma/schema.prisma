@@ -1,0 +1,284 @@
+// Turnamen Bola — Prisma schema (Supabase Postgres)
+// Auth users tetap di auth.users (Supabase Auth). Profile.id = auth.users.id
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  captain
+  admin
+
+  @@map("user_role")
+}
+
+enum TournamentStatus {
+  draft
+  open
+  ongoing
+  done
+
+  @@map("tournament_status")
+}
+
+enum TeamStatus {
+  pending_payment
+  awaiting_confirm
+  confirmed
+  rejected
+
+  @@map("team_status")
+}
+
+enum MatchResultType {
+  score
+  wo
+  dq
+
+  @@map("match_result_type")
+}
+
+/// Sistem kompetisi turnamen
+enum CompetitionFormat {
+  knockout
+  single_round_robin
+  double_round_robin
+
+  @@map("competition_format")
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+model Profile {
+  id        String   @id @db.Uuid
+  fullName  String?  @map("full_name")
+  phone     String?
+  role      UserRole @default(captain)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  teamsAsCaptain Team[]    @relation("TeamCaptain")
+  paymentsReviewed Payment[] @relation("PaymentReviewer")
+
+  @@map("profiles")
+}
+
+model Tournament {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String
+  description          String?
+  maxTeams             Int              @map("max_teams") @db.SmallInt
+  bracketSize          Int?             @map("bracket_size") @db.SmallInt
+  registrationFee      Decimal          @default(0) @map("registration_fee") @db.Decimal(12, 2)
+  bankName             String?          @map("bank_name")
+  bankAccountNumber    String?          @map("bank_account_number")
+  bankAccountHolder    String?          @map("bank_account_holder")
+  /// Nomor WhatsApp admin turnamen (untuk tombol chat kapten), contoh 0822...
+  adminWhatsapp        String?          @map("admin_whatsapp")
+  maxPlayersPerTeam    Int              @default(18) @map("max_players_per_team") @db.SmallInt
+  minPlayersPerTeam    Int              @default(11) @map("min_players_per_team") @db.SmallInt
+  /// Minimal jumlah jenis berkas jika tidak ada kartu yang ditandai wajib
+  minPlayerDocuments   Int              @default(2) @map("min_player_documents") @db.SmallInt
+  /// knockout | single_round_robin (setengah) | double_round_robin (penuh)
+  competitionFormat    CompetitionFormat @default(knockout) @map("competition_format")
+  status               TournamentStatus @default(draft)
+  bracketLocked        Boolean          @default(false) @map("bracket_locked")
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  teams        Team[]
+  bracketSlots BracketSlot[]
+  matches      Match[]
+  docCards     TournamentDocCard[]
+  playerFields TournamentPlayerField[]
+
+  @@map("tournaments")
+}
+
+/// Kartu/berkas identitas yang diminta admin untuk pemain (custom per turnamen)
+model TournamentDocCard {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tournamentId String   @map("tournament_id") @db.Uuid
+  /// slug unik, contoh: ktp, kartu_pelajar
+  key          String
+  label        String
+  description  String?
+  required     Boolean  @default(false)
+  active       Boolean  @default(true)
+  sortOrder    Int      @default(0) @map("sort_order") @db.SmallInt
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, key])
+  @@index([tournamentId, active, sortOrder])
+  @@map("tournament_doc_cards")
+}
+
+/// Field form tambah pemain (custom label / tampil / wajib) per turnamen
+model TournamentPlayerField {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tournamentId String   @map("tournament_id") @db.Uuid
+  /// full_name | identity_number | jersey_number | position | custom_*
+  key          String
+  label        String
+  placeholder  String?
+  /// text | number | date
+  fieldType    String   @default("text") @map("field_type")
+  required     Boolean  @default(false)
+  active       Boolean  @default(true)
+  /// true = tidak bisa dihapus (full_name)
+  locked       Boolean  @default(false)
+  sortOrder    Int      @default(0) @map("sort_order") @db.SmallInt
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, key])
+  @@index([tournamentId, active, sortOrder])
+  @@map("tournament_player_fields")
+}
+
+model Team {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tournamentId  String     @map("tournament_id") @db.Uuid
+  captainId     String     @map("captain_id") @db.Uuid
+  name          String
+  city          String?
+  contactPhone  String?    @map("contact_phone")
+  contactEmail  String?    @map("contact_email")
+  coachName     String?    @map("coach_name")
+  logoPath      String?    @map("logo_path")
+  status        TeamStatus @default(pending_payment)
+  rejectionNote String?    @map("rejection_note")
+  confirmedAt   DateTime?  @map("confirmed_at") @db.Timestamptz(6)
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  captain    Profile    @relation("TeamCaptain", fields: [captainId], references: [id], onDelete: Restrict)
+  payments   Payment[]
+  players    Player[]
+  bracketSlots BracketSlot[]
+  matchesWon Match[]    @relation("MatchWinner")
+  matchesForfeited Match[] @relation("MatchForfeited")
+
+  @@unique([tournamentId, name])
+  @@unique([tournamentId, captainId])
+  @@index([tournamentId, status])
+  @@map("teams")
+}
+
+model Payment {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teamId     String    @map("team_id") @db.Uuid
+  proofPath  String    @map("proof_path")
+  amount     Decimal?  @db.Decimal(12, 2)
+  note       String?
+  reviewedBy String?   @map("reviewed_by") @db.Uuid
+  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  reviewer Profile? @relation("PaymentReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([teamId])
+  @@map("payments")
+}
+
+model Player {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teamId         String   @map("team_id") @db.Uuid
+  fullName       String   @map("full_name")
+  identityNumber String?  @map("identity_number")
+  jerseyNumber   Int?     @map("jersey_number") @db.SmallInt
+  position       String?
+  /// nilai field custom (bukan kolom bawaan)
+  extraData      Json?    @map("extra_data")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  team      Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  documents PlayerDocument[]
+
+  @@index([teamId])
+  @@map("players")
+}
+
+model PlayerDocument {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  playerId  String   @map("player_id") @db.Uuid
+  /// cocok dengan TournamentDocCard.key
+  docType   String   @map("doc_type")
+  filePath  String   @map("file_path")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, docType])
+  @@map("player_documents")
+}
+
+model BracketSlot {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tournamentId String   @map("tournament_id") @db.Uuid
+  round        Int      @db.SmallInt
+  side         String // 'left' | 'right'
+  position     Int      @db.SmallInt
+  teamId       String?  @map("team_id") @db.Uuid
+  isBye        Boolean  @default(false) @map("is_bye")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  team       Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  matchesAsA Match[]    @relation("MatchSlotA")
+  matchesAsB Match[]    @relation("MatchSlotB")
+  matchesAsWinnerSlot Match[] @relation("MatchWinnerSlot")
+
+  @@unique([tournamentId, round, side, position])
+  @@index([tournamentId, round])
+  @@map("bracket_slots")
+}
+
+model Match {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tournamentId    String           @map("tournament_id") @db.Uuid
+  round           Int              @db.SmallInt
+  slotAId         String           @map("slot_a_id") @db.Uuid
+  slotBId         String           @map("slot_b_id") @db.Uuid
+  winnerSlotId    String?          @map("winner_slot_id") @db.Uuid
+  scheduledAt     DateTime?        @map("scheduled_at") @db.Timestamptz(6)
+  venue           String?
+  scoreA          Int?             @map("score_a") @db.SmallInt
+  scoreB          Int?             @map("score_b") @db.SmallInt
+  resultType      MatchResultType? @map("result_type")
+  winnerTeamId    String?          @map("winner_team_id") @db.Uuid
+  forfeitedTeamId String?          @map("forfeited_team_id") @db.Uuid
+  notes           String?
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tournament    Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  slotA         BracketSlot @relation("MatchSlotA", fields: [slotAId], references: [id], onDelete: Cascade)
+  slotB         BracketSlot @relation("MatchSlotB", fields: [slotBId], references: [id], onDelete: Cascade)
+  winnerSlot    BracketSlot? @relation("MatchWinnerSlot", fields: [winnerSlotId], references: [id], onDelete: SetNull)
+  winnerTeam    Team?       @relation("MatchWinner", fields: [winnerTeamId], references: [id], onDelete: SetNull)
+  forfeitedTeam Team?       @relation("MatchForfeited", fields: [forfeitedTeamId], references: [id], onDelete: SetNull)
+
+  @@index([tournamentId, round])
+  @@map("matches")
+}
