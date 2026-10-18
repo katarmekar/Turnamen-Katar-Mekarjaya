@@ -86,6 +86,11 @@ export default async function AdminPanelPage() {
 
   const links = [
     {
+      href: "/admin/manajer",
+      title: "Rekap manajer",
+      desc: `${teamCount} tim · kontak & reset password`,
+    },
+    {
       href: "/admin/pembayaran",
       title: "Konfirmasi pembayaran",
       desc: `${awaitingPayment} menunggu`,
