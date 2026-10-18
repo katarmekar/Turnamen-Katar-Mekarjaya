@@ -13,6 +13,10 @@ import {
   submitMatchResult,
 } from "@/lib/bracket";
 import { isLeagueFormat } from "@/lib/league";
+import {
+  deleteTournamentCascade,
+  formatDeleteTournamentError,
+} from "@/lib/delete-tournament";
 import { prisma } from "@/lib/prisma";
 import { purgeTournamentStorage } from "@/lib/supabase/storage-cleanup";
 import { ensureDefaultTournamentRules } from "@/lib/tournament-rules";
@@ -126,26 +130,17 @@ export async function deleteTournament(
   }
 
   try {
-    // Storage best-effort — gagal hapus file tidak boleh gagalkan hapus DB.
+    // Storage app dulu (best-effort); DB trigger juga di-amankan di cascade.
     try {
       await purgeTournamentStorage({ teamIds, knownPaths });
     } catch (storageErr) {
       console.warn("[deleteTournament] storage cleanup", storageErr);
     }
 
-    // Hapus match dulu agar FK ke bracket_slots tidak bentrok saat Cascade.
-    await prisma.$transaction(async (tx) => {
-      await tx.match.deleteMany({ where: { tournamentId } });
-      await tx.bracketSlot.deleteMany({ where: { tournamentId } });
-      await tx.tournament.delete({ where: { id: tournamentId } });
-    });
+    await deleteTournamentCascade(tournamentId);
   } catch (err) {
     console.error("[deleteTournament]", err);
-    const message =
-      err instanceof Error ? err.message : "Gagal menghapus turnamen.";
-    return {
-      error: `Gagal menghapus turnamen. ${message.slice(0, 180)}`,
-    };
+    return { error: formatDeleteTournamentError(err) };
   }
 
   try {
