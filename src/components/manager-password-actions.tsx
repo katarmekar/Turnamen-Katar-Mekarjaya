@@ -6,6 +6,7 @@ import {
   adminSetManagerPassword,
   type ManagerActionState,
 } from "@/app/actions/managers";
+import { PasswordField } from "@/components/password-field";
 
 type Props = {
   userId: string;
@@ -55,10 +56,9 @@ export function ManagerPasswordActions({ userId, email, teamName }: Props) {
               <span className="text-[var(--muted)]">
                 Password sementara (kosongkan = acak)
               </span>
-              <input
+              <PasswordField
                 name="password"
-                type="text"
-                className="input py-1.5 text-xs"
+                inputClassName="py-1.5 text-xs"
                 placeholder="Minimal 6 karakter"
                 minLength={6}
                 autoComplete="off"

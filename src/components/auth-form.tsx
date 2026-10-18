@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import type { AuthActionState } from "@/app/actions/auth";
+import { PasswordField } from "@/components/password-field";
 
 type AuthFormProps = {
   mode: "login" | "register";
@@ -59,13 +60,11 @@ export function AuthForm({ mode, action, nextPath }: AuthFormProps) {
 
       <label className="flex flex-col gap-1.5 text-sm">
         <span className="text-[var(--muted)]">Password</span>
-        <input
+        <PasswordField
           name="password"
-          type="password"
           required
           minLength={6}
           autoComplete={mode === "login" ? "current-password" : "new-password"}
-          className="input"
           placeholder="Minimal 6 karakter"
         />
       </label>
