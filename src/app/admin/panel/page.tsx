@@ -125,6 +125,11 @@ export default async function AdminPanelPage() {
       title: "Form data pemain",
       desc: "Field form tambah pemain (custom)",
     },
+    {
+      href: "/admin/peraturan",
+      title: "Peraturan turnamen",
+      desc: `Versi ${tournament.rulesVersion} · tambah / edit / hapus pasal`,
+    },
   ];
 
   return (

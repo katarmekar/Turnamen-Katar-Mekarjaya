@@ -15,6 +15,7 @@ import {
 import { isLeagueFormat } from "@/lib/league";
 import { prisma } from "@/lib/prisma";
 import { purgeTournamentStorage } from "@/lib/supabase/storage-cleanup";
+import { ensureDefaultTournamentRules } from "@/lib/tournament-rules";
 
 export type ActionState = { error?: string; success?: string };
 
@@ -351,9 +352,15 @@ export async function saveTournament(
     if (id) {
       await prisma.tournament.update({ where: { id }, data });
     } else {
-      const created = await prisma.tournament.create({ data });
+      const created = await prisma.tournament.create({
+        data: {
+          ...data,
+          rulesVersion: 1,
+        },
+      });
       await ensureDefaultDocCards(created.id);
       await ensureDefaultPlayerFields(created.id);
+      await ensureDefaultTournamentRules(created.id);
     }
   } catch (e) {
     console.error("saveTournament", e);

@@ -1045,3 +1045,348 @@ select.input option:hover {
     width: 7rem;
   }
 }
+
+/* Peraturan — tampilan dokumen (Word-like) dengan kotak pasal/poin jelas */
+.rules-doc {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
+  color: #0f172a;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 0.35rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 18px 48px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(56, 189, 248, 0.12);
+  overflow: hidden;
+}
+
+.rules-doc__header {
+  padding: 1.75rem 1.75rem 1.35rem;
+  border-bottom: 3px double #334155;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  text-align: center;
+}
+
+.rules-doc__eyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.rules-doc__title {
+  margin: 0.45rem 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.85rem, 4vw, 2.5rem);
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  color: #0b1220;
+}
+
+.rules-doc__subtitle {
+  margin: 0.55rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: pre-line;
+}
+
+.rules-doc__meta {
+  margin: 0.65rem 0 0;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.rules-doc__meta-sep {
+  margin: 0 0.4rem;
+  opacity: 0.55;
+}
+
+.rules-doc__empty {
+  margin: 0;
+  padding: 2rem 1.75rem;
+  font-size: 0.95rem;
+  color: #64748b;
+}
+
+.rules-doc__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem 1.25rem 1.5rem;
+}
+
+.rules-pasal {
+  border: 2px solid #1e293b;
+  border-radius: 0.25rem;
+  background: #ffffff;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.rules-pasal--single {
+  border-width: 1.5px;
+}
+
+.rules-pasal__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 2px solid #1e293b;
+  background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
+}
+
+.rules-pasal__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.5rem;
+  padding: 0.35rem 0.65rem;
+  border: 1.5px solid #0f172a;
+  border-radius: 0.2rem;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rules-pasal__title {
+  margin: 0;
+  flex: 1;
+  min-width: 10rem;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.35rem;
+  letter-spacing: 0.03em;
+  color: #0f172a;
+}
+
+.rules-pasal__desc-box {
+  margin: 0.9rem 1rem 0;
+  padding: 0.85rem 1rem;
+  border: 1.5px solid #94a3b8;
+  border-radius: 0.2rem;
+  background: #f8fafc;
+}
+
+.rules-pasal__desc-label,
+.rules-pasal__points-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.rules-pasal__desc {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  color: #1e293b;
+}
+
+.rules-pasal__points {
+  padding: 0.9rem 1rem 1rem;
+}
+
+.rules-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.rules-point {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border: 1.5px solid #64748b;
+  border-radius: 0.2rem;
+  background: #ffffff;
+}
+
+.rules-point__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+  height: 1.75rem;
+  padding: 0 0.4rem;
+  border: 1.5px solid #0f172a;
+  border-radius: 0.2rem;
+  background: #e2e8f0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.rules-point__content {
+  min-width: 0;
+}
+
+.rules-point__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.rules-point__desc {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: #334155;
+}
+
+@media (max-width: 640px) {
+  .rules-doc__header,
+  .rules-doc__body {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .rules-pasal__head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.rules-pasal__rich {
+  padding: 1rem 1.1rem 1.15rem;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: #1e293b;
+}
+
+.rules-pasal__rich p {
+  margin: 0 0 0.75rem;
+}
+
+.rules-pasal__rich p:last-child {
+  margin-bottom: 0;
+}
+
+.rules-pasal__rich ul,
+.rules-pasal__rich ol {
+  margin: 0.5rem 0 0.75rem;
+  padding-left: 1.4rem;
+}
+
+.rules-pasal__rich li {
+  margin: 0.35rem 0;
+}
+
+.rules-pasal__rich ul ul,
+.rules-pasal__rich ol ol,
+.rules-pasal__rich ul ol,
+.rules-pasal__rich ol ul {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.rules-pasal__rich strong,
+.rules-pasal__rich b {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Editor mirip Word (ringkas) */
+.rules-word-editor {
+  overflow: hidden;
+  border: 2px solid #334155;
+  border-radius: 0.25rem;
+  background: #ffffff;
+}
+
+.rules-word-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.55rem 0.65rem;
+  border-bottom: 2px solid #94a3b8;
+  background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
+}
+
+.rules-word-tool {
+  min-height: 2rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid #64748b;
+  border-radius: 0.2rem;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rules-word-tool:hover {
+  border-color: #0f172a;
+  background: #f8fafc;
+}
+
+.rules-word-tool.is-bold {
+  font-weight: 800;
+}
+
+.rules-word-tool.is-italic {
+  font-style: italic;
+}
+
+.rules-word-tool.is-underline {
+  text-decoration: underline;
+}
+
+.rules-word-canvas {
+  min-height: 14rem;
+  padding: 1rem 1.1rem;
+  outline: none;
+  color: #0f172a;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  background: #ffffff;
+}
+
+.rules-word-canvas:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+}
+
+.rules-word-canvas p {
+  margin: 0 0 0.65rem;
+}
+
+.rules-word-canvas ul,
+.rules-word-canvas ol {
+  margin: 0.4rem 0 0.65rem;
+  padding-left: 1.4rem;
+}
+
+.rules-word-canvas li {
+  margin: 0.3rem 0;
+}
+
+.rules-word-input {
+  width: 100%;
+  border-radius: 0.25rem;
+  border: 1.5px solid #94a3b8;
+  background: #ffffff;
+  padding: 0.55rem 0.7rem;
+  color: #0f172a;
+  outline: none;
+}
+
+.rules-word-input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
+}

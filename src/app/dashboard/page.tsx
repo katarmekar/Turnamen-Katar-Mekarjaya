@@ -6,6 +6,7 @@ import { requireProfile } from "@/lib/auth";
 import { ROLE_LABEL, TEAM_STATUS_LABEL } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { getTournamentForBracket } from "@/lib/tournament-bracket";
+import { hasAcceptedCurrentRules } from "@/lib/tournament-rules";
 
 function formatSchedule(d: Date) {
   return new Intl.DateTimeFormat("id-ID", {
@@ -43,6 +44,12 @@ export default async function DashboardPage() {
   });
   const team = teams[0] ?? null;
   const confirmedTeams = teams.filter((t) => t.status === "confirmed");
+  const rulesAccepted = team
+    ? hasAcceptedCurrentRules({
+        rulesVersion: team.tournament.rulesVersion,
+        rulesAcceptedVersion: team.rulesAcceptedVersion,
+      })
+    : false;
 
   const [openCount, matches, bracketTournament] = await Promise.all([
     prisma.tournament.count({
@@ -53,7 +60,7 @@ export default async function DashboardPage() {
         },
       },
     }),
-    team
+    team && rulesAccepted
       ? prisma.match.findMany({
           where: {
             OR: [
@@ -109,6 +116,19 @@ export default async function DashboardPage() {
                 <p className="mt-2 text-sm text-[var(--muted)]">
                   Daftarkan tim terlebih dahulu.
                 </p>
+              ) : !rulesAccepted ? (
+                <div className="mt-2 space-y-3">
+                  <p className="text-sm text-[var(--muted)]">
+                    Jadwal tersembunyi sampai Anda menyetujui peraturan
+                    turnamen.
+                  </p>
+                  <Link
+                    href={`/dashboard/peraturan?teamId=${team.id}`}
+                    className="btn-primary inline-flex text-sm"
+                  >
+                    Baca & setujui peraturan
+                  </Link>
+                </div>
               ) : matches.length === 0 ? (
                 <p className="mt-2 text-sm text-[var(--muted)]">
                   Belum ada jadwal. Muncul setelah admin membuat bagan & mengisi
@@ -213,6 +233,43 @@ export default async function DashboardPage() {
               </>
             )}
           </div>
+        </div>
+
+        <div className="panel mt-4 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-white">Peraturan</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Wajib dibaca dan disetujui manajer sebelum jadwal pertandingan
+                tampil.
+              </p>
+            </div>
+            {team && (
+              <Link
+                href={`/dashboard/peraturan?teamId=${team.id}`}
+                className="btn-primary shrink-0"
+              >
+                {rulesAccepted ? "Lihat peraturan" : "Baca & setujui"}
+              </Link>
+            )}
+          </div>
+          {!team ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">
+              Daftarkan tim terlebih dahulu.
+            </p>
+          ) : (
+            <p
+              className={
+                rulesAccepted
+                  ? "mt-4 text-sm text-emerald-300"
+                  : "mt-4 text-sm text-amber-200"
+              }
+            >
+              {rulesAccepted
+                ? `Sudah disetujui (versi ${team.tournament.rulesVersion}).`
+                : `Belum disetujui — versi peraturan saat ini: ${team.tournament.rulesVersion}.`}
+            </p>
+          )}
         </div>
 
         <div className="panel mt-4 p-6">

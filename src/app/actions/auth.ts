@@ -1,10 +1,25 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import {
+  SESSION_STARTED_COOKIE,
+  sessionCookieOptions,
+} from "@/lib/auth-session";
 import { createClient } from "@/lib/supabase/server";
 import { confirmUserEmail } from "@/lib/auth-confirm";
 import { prisma } from "@/lib/prisma";
 import { safeInternalPath } from "@/lib/safe-redirect";
+
+async function markSessionStarted() {
+  const jar = await cookies();
+  jar.set(SESSION_STARTED_COOKIE, String(Date.now()), sessionCookieOptions);
+}
+
+async function clearSessionStarted() {
+  const jar = await cookies();
+  jar.set(SESSION_STARTED_COOKIE, "", { ...sessionCookieOptions, maxAge: 0 });
+}
 
 export type AuthActionState = {
   error?: string;
@@ -84,6 +99,7 @@ export async function registerCaptain(
     }
   }
 
+  await markSessionStarted();
   redirect("/dashboard");
 }
 
@@ -124,6 +140,8 @@ export async function login(
     return { error: "Email atau password salah." };
   }
 
+  await markSessionStarted();
+
   const userId = signInData.user?.id;
   let role: string | null = null;
 
@@ -145,5 +163,6 @@ export async function login(
 export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  await clearSessionStarted();
   redirect("/login");
 }

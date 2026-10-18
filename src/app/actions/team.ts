@@ -186,3 +186,45 @@ export async function uploadPaymentProof(
     note,
   });
 }
+
+/** Manajer menyetujui peraturan turnamen (versi saat ini). */
+export async function acceptTournamentRules(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const profile = await requireProfile();
+  if (profile.role !== "captain") {
+    return { error: "Hanya manajer yang dapat menyetujui peraturan." };
+  }
+
+  const teamId = String(formData.get("team_id") ?? "").trim();
+  const agreed = String(formData.get("agreed") ?? "") === "1";
+
+  if (!teamId) return { error: "Tim tidak valid." };
+  if (!agreed) {
+    return { error: "Centang pernyataan setuju terlebih dahulu." };
+  }
+
+  const team = await prisma.team.findFirst({
+    where: { id: teamId, captainId: profile.id },
+    include: {
+      tournament: {
+        select: { id: true, rulesVersion: true },
+      },
+    },
+  });
+
+  if (!team) return { error: "Tim tidak ditemukan." };
+
+  await prisma.team.update({
+    where: { id: team.id },
+    data: {
+      rulesAcceptedVersion: team.tournament.rulesVersion,
+      rulesAcceptedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/peraturan");
+  return { success: "Peraturan disetujui. Jadwal pertandingan kini dapat dilihat." };
+}

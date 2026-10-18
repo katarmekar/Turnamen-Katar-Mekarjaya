@@ -105,6 +105,16 @@ model Tournament {
   qualifyPerGroup      Int?             @map("qualify_per_group") @db.SmallInt
   status               TournamentStatus @default(draft)
   bracketLocked        Boolean          @default(false) @map("bracket_locked")
+  /// Naik tiap kali admin mengubah peraturan (manajer harus setuju ulang)
+  rulesVersion         Int              @default(1) @map("rules_version")
+  /// Label kecil di atas judul dokumen peraturan
+  rulesHeaderEyebrow   String           @default("Dokumen resmi") @map("rules_header_eyebrow")
+  /// Judul utama dokumen peraturan
+  rulesHeaderTitle     String           @default("Peraturan Turnamen") @map("rules_header_title")
+  /// Baris tambahan di bawah judul (opsional)
+  rulesHeaderSubtitle  String           @default("") @map("rules_header_subtitle")
+  /// Baris meta di header (kosong = otomatis nama turnamen · versi)
+  rulesHeaderMeta      String           @default("") @map("rules_header_meta")
   createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -113,8 +123,30 @@ model Tournament {
   matches      Match[]
   docCards     TournamentDocCard[]
   playerFields TournamentPlayerField[]
+  rules        TournamentRule[]
 
   @@map("tournaments")
+}
+
+/// Pasal peraturan (panel terpisah per pasal)
+model TournamentRule {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tournamentId String   @map("tournament_id") @db.Uuid
+  /// Nomor pasal (bisa diedit; menentukan urutan tampilan)
+  pasalNumber  Int      @map("pasal_number") @db.SmallInt
+  title        String
+  /// Isi pasal (HTML dari editor mirip Word)
+  description  String   @default("")
+  /// Cadangan poin terstruktur (boleh kosong jika isi sudah di HTML)
+  points       Json     @default("[]")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, pasalNumber])
+  @@index([tournamentId, pasalNumber])
+  @@map("tournament_rules")
 }
 
 /// Kartu/berkas identitas yang diminta admin untuk pemain (custom per turnamen)
@@ -176,6 +208,9 @@ model Team {
   status        TeamStatus @default(pending_payment)
   rejectionNote String?    @map("rejection_note")
   confirmedAt   DateTime?  @map("confirmed_at") @db.Timestamptz(6)
+  /// Versi peraturan yang sudah disetujui manajer (harus = tournament.rulesVersion)
+  rulesAcceptedVersion Int?      @map("rules_accepted_version")
+  rulesAcceptedAt      DateTime? @map("rules_accepted_at") @db.Timestamptz(6)
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
