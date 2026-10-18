@@ -125,13 +125,36 @@ export async function deleteTournament(
     }
   }
 
-  // File Storage dulu, lalu baris DB (Cascade; profiles tetap).
-  await purgeTournamentStorage({ teamIds, knownPaths });
-  await prisma.tournament.delete({ where: { id: tournamentId } });
+  try {
+    // Storage best-effort — gagal hapus file tidak boleh gagalkan hapus DB.
+    try {
+      await purgeTournamentStorage({ teamIds, knownPaths });
+    } catch (storageErr) {
+      console.warn("[deleteTournament] storage cleanup", storageErr);
+    }
 
-  const jar = await cookies();
-  if (jar.get(ADMIN_TOURNAMENT_COOKIE)?.value === tournamentId) {
-    jar.delete(ADMIN_TOURNAMENT_COOKIE);
+    // Hapus match dulu agar FK ke bracket_slots tidak bentrok saat Cascade.
+    await prisma.$transaction(async (tx) => {
+      await tx.match.deleteMany({ where: { tournamentId } });
+      await tx.bracketSlot.deleteMany({ where: { tournamentId } });
+      await tx.tournament.delete({ where: { id: tournamentId } });
+    });
+  } catch (err) {
+    console.error("[deleteTournament]", err);
+    const message =
+      err instanceof Error ? err.message : "Gagal menghapus turnamen.";
+    return {
+      error: `Gagal menghapus turnamen. ${message.slice(0, 180)}`,
+    };
+  }
+
+  try {
+    const jar = await cookies();
+    if (jar.get(ADMIN_TOURNAMENT_COOKIE)?.value === tournamentId) {
+      jar.delete(ADMIN_TOURNAMENT_COOKIE);
+    }
+  } catch (cookieErr) {
+    console.warn("[deleteTournament] cookie cleanup", cookieErr);
   }
 
   revalidatePath("/admin");

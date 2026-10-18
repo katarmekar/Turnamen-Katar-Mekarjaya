@@ -13,21 +13,26 @@ async function listFilesRecursive(
   bucket: string,
   folder: string
 ): Promise<string[]> {
-  const { data, error } = await client.storage.from(bucket).list(folder, {
-    limit: 1000,
-  });
-  if (error || !data?.length) return [];
+  try {
+    const { data, error } = await client.storage.from(bucket).list(folder, {
+      limit: 1000,
+    });
+    if (error || !data?.length) return [];
 
-  const paths: string[] = [];
-  for (const item of data) {
-    const path = folder ? `${folder}/${item.name}` : item.name;
-    if (item.id === null) {
-      paths.push(...(await listFilesRecursive(client, bucket, path)));
-    } else {
-      paths.push(path);
+    const paths: string[] = [];
+    for (const item of data) {
+      const path = folder ? `${folder}/${item.name}` : item.name;
+      if (item.id === null) {
+        paths.push(...(await listFilesRecursive(client, bucket, path)));
+      } else {
+        paths.push(path);
+      }
     }
+    return paths;
+  } catch (err) {
+    console.warn(`[storage-cleanup] list gagal ${bucket}/${folder}`, err);
+    return [];
   }
-  return paths;
 }
 
 async function removePaths(

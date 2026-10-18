@@ -61,14 +61,22 @@ export function TournamentPickList({
 
     startDelete(async () => {
       setError(null);
-      const result = await deleteTournament({}, fd);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await deleteTournament({}, fd);
+        if (result?.error) {
+          setError(result.error);
+          return;
+        }
+        setDeleting(null);
+        setConfirmName("");
+        router.refresh();
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Gagal menghapus turnamen. Coba lagi."
+        );
       }
-      setDeleting(null);
-      setConfirmName("");
-      router.refresh();
     });
   }
 
