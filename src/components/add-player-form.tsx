@@ -28,11 +28,9 @@ export type DocCardDef = {
   active?: boolean;
 };
 
-type PendingDoc = {
-  id: string;
+type DocSlot = {
   docType: string;
-  label: string;
-  file: File;
+  file: File | null;
 };
 
 type AddPlayerFormProps = {
@@ -43,6 +41,10 @@ type AddPlayerFormProps = {
   canAdd: boolean;
 };
 
+function emptySlots(count: number): DocSlot[] {
+  return Array.from({ length: count }, () => ({ docType: "", file: null }));
+}
+
 export function AddPlayerForm({
   teamId,
   fields,
@@ -51,12 +53,24 @@ export function AddPlayerForm({
   canAdd,
 }: AddPlayerFormProps) {
   const [formKey, setFormKey] = useState(0);
-  const [pendingDocs, setPendingDocs] = useState<PendingDoc[]>([]);
-  const [draftType, setDraftType] = useState("");
-  const [draftFile, setDraftFile] = useState<File | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const [state, setState] = useState<ActionState>({});
   const [isPending, startTransition] = useTransition();
+
+  const requiredCards = docCards.filter((c) => c.required);
+  const maxDocs = docCards.length;
+  const neededDocs = Math.min(
+    maxDocs,
+    requiredCards.length > 0
+      ? requiredCards.length
+      : Math.max(1, minPlayerDocuments)
+  );
+
+  const [slots, setSlots] = useState<DocSlot[]>(() => emptySlots(neededDocs));
+
+  useEffect(() => {
+    setSlots(emptySlots(neededDocs));
+  }, [neededDocs, formKey]);
 
   useEffect(() => {
     if (!state.success) return;
@@ -68,65 +82,51 @@ export function AddPlayerForm({
     return () => window.clearTimeout(timer);
   }, [state.success]);
 
-  const requiredCards = docCards.filter((c) => c.required);
-  const neededDocs =
-    requiredCards.length > 0
-      ? requiredCards.length
-      : Math.max(1, minPlayerDocuments);
-
-  const minHint =
-    requiredCards.length > 0
-      ? `Unggah minimal ${neededDocs} kartu wajib sebelum menyimpan: ${requiredCards.map((c) => c.label).join(", ")}.`
-      : `Unggah minimal ${neededDocs} berkas sesuai ketentuan admin sebelum tombol Simpan aktif.`;
-
-  const remaining = useMemo(
-    () => docCards.filter((c) => !pendingDocs.some((d) => d.docType === c.key)),
-    [docCards, pendingDocs]
-  );
+  const filledCount = slots.filter((s) => s.docType && s.file).length;
+  const canAddSlot = slots.length < maxDocs;
 
   const canSave =
     docCards.length === 0
       ? true
-      : pendingDocs.length >= neededDocs &&
+      : filledCount >= neededDocs &&
         (requiredCards.length === 0 ||
           requiredCards.every((c) =>
-            pendingDocs.some((d) => d.docType === c.key)
+            slots.some((s) => s.docType === c.key && s.file)
           ));
 
-  function addPendingDoc() {
-    setLocalError(null);
-    if (!draftType) {
-      setLocalError("Pilih kartu dokumen terlebih dahulu.");
-      return;
-    }
-    if (!draftFile || draftFile.size === 0) {
-      setLocalError("Pilih file berkas terlebih dahulu.");
-      return;
-    }
-    const card = docCards.find((c) => c.key === draftType);
-    if (!card) {
-      setLocalError("Kartu tidak valid.");
-      return;
-    }
-    if (pendingDocs.some((d) => d.docType === draftType)) {
-      setLocalError("Kartu ini sudah ditambahkan.");
-      return;
-    }
-    setPendingDocs((prev) => [
-      ...prev,
-      {
-        id: `${draftType}-${Date.now()}`,
-        docType: draftType,
-        label: card.label,
-        file: draftFile,
-      },
-    ]);
-    setDraftType("");
-    setDraftFile(null);
+  const minHint =
+    requiredCards.length > 0
+      ? `Isi ${neededDocs} kartu wajib di bawah: ${requiredCards.map((c) => c.label).join(", ")}. Bisa tambah sampai ${maxDocs} kartu.`
+      : `Isi minimal ${neededDocs} kartu dokumen. Bisa tambah sampai ${maxDocs} kartu yang disediakan admin.`;
+
+  const optionsForSlot = useMemo(() => {
+    return slots.map((_, index) => {
+      const takenElsewhere = new Set(
+        slots
+          .map((s, i) => (i !== index && s.docType ? s.docType : null))
+          .filter(Boolean) as string[]
+      );
+      return docCards.filter((c) => !takenElsewhere.has(c.key));
+    });
+  }, [docCards, slots]);
+
+  function updateSlot(index: number, patch: Partial<DocSlot>) {
+    setSlots((prev) =>
+      prev.map((slot, i) => (i === index ? { ...slot, ...patch } : slot))
+    );
   }
 
-  function removePending(id: string) {
-    setPendingDocs((prev) => prev.filter((d) => d.id !== id));
+  function addDocSlot() {
+    setLocalError(null);
+    setSlots((prev) => {
+      if (prev.length >= maxDocs) return prev;
+      return [...prev, { docType: "", file: null }];
+    });
+  }
+
+  function removeDocSlot(index: number) {
+    if (index < neededDocs) return;
+    setSlots((prev) => prev.filter((_, i) => i !== index));
   }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -136,18 +136,19 @@ export function AddPlayerForm({
 
     if (docCards.length > 0 && !canSave) {
       setLocalError(
-        `Minimal ${neededDocs} berkas harus ditambahkan sebelum menyimpan.`
+        `Lengkapi minimal ${neededDocs} berkas sebelum menyimpan pemain.`
       );
       return;
     }
 
+    const filled = slots.filter((s) => s.docType && s.file);
     const form = e.currentTarget;
     const fd = new FormData(form);
     fd.set("team_id", teamId);
-    fd.set("doc_count", String(pendingDocs.length));
-    pendingDocs.forEach((doc, i) => {
-      fd.set(`doc_type_${i}`, doc.docType);
-      fd.set(`file_${i}`, doc.file, doc.file.name);
+    fd.set("doc_count", String(filled.length));
+    filled.forEach((slot, i) => {
+      fd.set(`doc_type_${i}`, slot.docType);
+      fd.set(`file_${i}`, slot.file!, slot.file!.name);
     });
 
     startTransition(async () => {
@@ -157,9 +158,6 @@ export function AddPlayerForm({
           : await addPlayer({}, fd);
       setState(result);
       if (result.success) {
-        setPendingDocs([]);
-        setDraftType("");
-        setDraftFile(null);
         setFormKey((k) => k + 1);
       }
     });
@@ -231,89 +229,102 @@ export function AddPlayerForm({
             {minHint}
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            Progress: {pendingDocs.length} / {neededDocs} berkas siap
+            Progress: {filledCount} / {neededDocs} minimal · {slots.length} /{" "}
+            {maxDocs} slot
           </p>
 
-          {pendingDocs.length > 0 && (
-            <ul className="mt-3 space-y-2">
-              {pendingDocs.map((doc, i) => (
-                <li
-                  key={doc.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm"
-                >
-                  <span className="text-emerald-200">
-                    {i + 1}. {doc.label}{" "}
-                    <span className="text-emerald-200/70">
-                      · {doc.file.name}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removePending(doc.id)}
-                    className="btn-ghost px-2 py-1 text-xs text-red-300"
-                  >
-                    Hapus
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {slots.map((slot, index) => {
+              const options = optionsForSlot[index] ?? [];
+              const selected = docCards.find((c) => c.key === slot.docType);
+              const ready = Boolean(slot.docType && slot.file);
+              const isExtra = index >= neededDocs;
 
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-            {remaining.length > 0 && (
-              <>
-                <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
-                  <span className="text-[var(--muted)]">
-                    Kartu dokumen {pendingDocs.length + 1}
-                  </span>
-                  <select
-                    className="input"
-                    value={draftType}
-                    onChange={(e) => setDraftType(e.target.value)}
-                  >
-                    <option value="">Pilih kartu…</option>
-                    {remaining.map((c) => (
-                      <option key={c.id} value={c.key}>
-                        {c.label}
-                        {c.required ? " (wajib)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
-                  <span className="text-[var(--muted)]">File</span>
-                  <input
-                    key={`${pendingDocs.length}-${draftType}`}
-                    type="file"
-                    accept="image/*,application/pdf"
-                    className="input"
-                    onChange={(e) =>
-                      setDraftFile(e.target.files?.[0] ?? null)
-                    }
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={addPendingDoc}
-                  className="btn-ghost shrink-0 border border-white/15"
+              return (
+                <div
+                  key={`slot-${index}`}
+                  className={
+                    ready
+                      ? "rounded-md border border-emerald-400/30 bg-emerald-500/10 p-3"
+                      : "rounded-md border border-white/10 bg-black/20 p-3"
+                  }
                 >
-                  Tambah berkas
-                </button>
-              </>
-            )}
-            <button
-              type="submit"
-              disabled={isPending || !canSave}
-              className="shrink-0 px-1 py-2 text-sm font-bold text-[var(--accent)] underline-offset-4 transition hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline"
-              title={
-                !canSave
-                  ? `Unggah minimal ${neededDocs} berkas dulu`
-                  : undefined
-              }
-            >
-              {isPending ? "Menyimpan…" : "Simpan berkas"}
-            </button>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-white">
+                      Kartu dokumen {index + 1}
+                      {selected?.required
+                        ? " (wajib)"
+                        : isExtra
+                          ? " (tambahan)"
+                          : ""}
+                    </p>
+                    {isExtra && (
+                      <button
+                        type="button"
+                        onClick={() => removeDocSlot(index)}
+                        className="text-xs text-red-300 hover:underline"
+                      >
+                        Hapus
+                      </button>
+                    )}
+                  </div>
+                  <label className="flex flex-col gap-1 text-sm">
+                    <span className="text-[var(--muted)]">Jenis berkas</span>
+                    <select
+                      className="input"
+                      value={slot.docType}
+                      onChange={(e) =>
+                        updateSlot(index, {
+                          docType: e.target.value,
+                          file: null,
+                        })
+                      }
+                      required={index < neededDocs}
+                    >
+                      <option value="">Pilih kartu…</option>
+                      {options.map((c) => (
+                        <option key={c.id} value={c.key}>
+                          {c.label}
+                          {c.required ? " (wajib)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="mt-2 flex flex-col gap-1 text-sm">
+                    <span className="text-[var(--muted)]">File</span>
+                    <input
+                      key={`${formKey}-${index}-${slot.docType}`}
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="input"
+                      required={index < neededDocs}
+                      disabled={!slot.docType}
+                      onChange={(e) =>
+                        updateSlot(index, {
+                          file: e.target.files?.[0] ?? null,
+                        })
+                      }
+                    />
+                  </label>
+                  {slot.file && (
+                    <p className="mt-2 truncate text-xs text-emerald-200">
+                      {slot.file.name}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
+
+          {canAddSlot && (
+            <button
+              type="button"
+              onClick={addDocSlot}
+              className="btn-ghost mt-3 border border-white/15"
+            >
+              Tambah dokumen
+            </button>
+          )}
         </div>
       )}
 
@@ -335,7 +346,7 @@ export function AddPlayerForm({
           className="btn-primary disabled:cursor-not-allowed disabled:opacity-40"
           title={
             !canSave
-              ? `Unggah minimal ${neededDocs} berkas dulu`
+              ? `Lengkapi ${neededDocs} berkas dulu`
               : undefined
           }
         >
@@ -343,8 +354,8 @@ export function AddPlayerForm({
         </button>
         {!canSave && docCards.length > 0 && (
           <span className="text-center text-xs text-[var(--muted)]">
-            Tombol aktif setelah {neededDocs} berkas ditambahkan (
-            {pendingDocs.length}/{neededDocs})
+            Tombol aktif setelah {neededDocs} berkas diisi (
+            {filledCount}/{neededDocs})
           </span>
         )}
       </div>

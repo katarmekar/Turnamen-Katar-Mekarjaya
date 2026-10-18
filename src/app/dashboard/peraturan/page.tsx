@@ -1,8 +1,13 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AcceptRulesForm } from "@/components/accept-rules-form";
 import { RulesDocument } from "@/components/rules-document";
 import { SiteHeader } from "@/components/site-header";
 import { requireProfile } from "@/lib/auth";
+import {
+  paymentReuploadRequired,
+  reuploadPaymentHref,
+} from "@/lib/payment-gate";
 import { prisma } from "@/lib/prisma";
 import {
   ensureDefaultTournamentRules,
@@ -35,6 +40,10 @@ export default async function DashboardPeraturanPage({ searchParams }: PageProps
     (params.teamId ? teams.find((t) => t.id === params.teamId) : null) ??
     teams[0] ??
     null;
+
+  if (team && paymentReuploadRequired(team.status)) {
+    redirect(reuploadPaymentHref(team.id));
+  }
 
   if (!team) {
     return (

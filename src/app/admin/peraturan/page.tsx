@@ -61,7 +61,7 @@ export default async function AdminPeraturanPage() {
             defaultTitle={fresh.rulesHeaderTitle}
             defaultSubtitle={fresh.rulesHeaderSubtitle}
             defaultMeta={
-              fresh.rulesHeaderMeta.trim() ||
+              (fresh.rulesHeaderMeta ?? "").trim() ||
               `${fresh.name} · Versi ${fresh.rulesVersion}`
             }
           />

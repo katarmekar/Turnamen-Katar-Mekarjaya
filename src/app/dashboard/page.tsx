@@ -5,6 +5,10 @@ import { TournamentBracketView } from "@/components/tournament-bracket-view";
 import { requireProfile } from "@/lib/auth";
 import { ROLE_LABEL, TEAM_STATUS_LABEL } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
+import {
+  paymentReuploadRequired,
+  reuploadPaymentHref,
+} from "@/lib/payment-gate";
 import { getTournamentForBracket } from "@/lib/tournament-bracket";
 import { hasAcceptedCurrentRules } from "@/lib/tournament-rules";
 
@@ -44,6 +48,8 @@ export default async function DashboardPage() {
   });
   const team = teams[0] ?? null;
   const confirmedTeams = teams.filter((t) => t.status === "confirmed");
+  const rejectedTeams = teams.filter((t) => paymentReuploadRequired(t.status));
+  const paymentBlocked = team ? paymentReuploadRequired(team.status) : false;
   const rulesAccepted = team
     ? hasAcceptedCurrentRules({
         rulesVersion: team.tournament.rulesVersion,
@@ -92,6 +98,35 @@ export default async function DashboardPage() {
           turnamen di satu tempat.
         </p>
 
+        {rejectedTeams.length > 0 && (
+          <div className="mt-6 rounded-md border border-red-500/40 bg-red-500/10 px-4 py-4">
+            <p className="font-medium text-white">Bukti pembayaran ditolak</p>
+            <p className="mt-1 text-sm text-red-100">
+              Upload ulang bukti dulu. Menu peraturan, jadwal, pemain, dan
+              bagan untuk tim ini terkunci sampai bukti baru terkirim.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {rejectedTeams.map((t) => (
+                <li
+                  key={t.id}
+                  className="flex flex-wrap items-center justify-between gap-2 text-sm"
+                >
+                  <span className="text-white">
+                    {t.name}
+                    {t.rejectionNote ? ` — ${t.rejectionNote}` : ""}
+                  </span>
+                  <Link
+                    href={reuploadPaymentHref(t.id)}
+                    className="btn-primary inline-flex text-sm"
+                  >
+                    Upload ulang bukti
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="mt-8 grid gap-4 lg:grid-cols-2">
           <div className="panel p-6">
             <h2 className="text-lg font-semibold text-white">Status akun</h2>
@@ -115,6 +150,10 @@ export default async function DashboardPage() {
               {!team ? (
                 <p className="mt-2 text-sm text-[var(--muted)]">
                   Daftarkan tim terlebih dahulu.
+                </p>
+              ) : paymentBlocked ? (
+                <p className="mt-2 text-sm text-[var(--muted)]">
+                  Jadwal terkunci sampai bukti pembayaran diupload ulang.
                 </p>
               ) : !rulesAccepted ? (
                 <div className="mt-2 space-y-3">
@@ -244,7 +283,7 @@ export default async function DashboardPage() {
                 tampil.
               </p>
             </div>
-            {team && (
+            {team && !paymentBlocked && (
               <Link
                 href={`/dashboard/peraturan?teamId=${team.id}`}
                 className="btn-primary shrink-0"
@@ -256,6 +295,10 @@ export default async function DashboardPage() {
           {!team ? (
             <p className="mt-4 text-sm text-[var(--muted)]">
               Daftarkan tim terlebih dahulu.
+            </p>
+          ) : paymentBlocked ? (
+            <p className="mt-4 text-sm text-amber-200">
+              Terkunci. Upload ulang bukti pembayaran terlebih dahulu.
             </p>
           ) : (
             <p
@@ -303,7 +346,9 @@ export default async function DashboardPage() {
             </p>
           ) : confirmedTeams.length === 0 ? (
             <p className="mt-4 text-sm text-[var(--muted)]">
-              Daftar pemain tersedia setelah pembayaran dikonfirmasi admin.
+              {rejectedTeams.length > 0
+                ? "Pemain terkunci. Upload ulang bukti yang ditolak dulu, lalu tunggu konfirmasi admin."
+                : "Daftar pemain tersedia setelah pembayaran dikonfirmasi admin."}
             </p>
           ) : (
             <div className="mt-4 space-y-4">
@@ -379,10 +424,18 @@ export default async function DashboardPage() {
                 : "Belum ada turnamen aktif untuk ditampilkan."}
             </p>
           </div>
-          <TournamentBracketView
-            tournament={bracketTournament}
-            showHeading={false}
-          />
+          {paymentBlocked ? (
+            <div className="panel p-6">
+              <p className="text-sm text-[var(--muted)]">
+                Bagan terkunci sampai bukti pembayaran diupload ulang.
+              </p>
+            </div>
+          ) : (
+            <TournamentBracketView
+              tournament={bracketTournament}
+              showHeading={false}
+            />
+          )}
         </section>
       </main>
     </div>

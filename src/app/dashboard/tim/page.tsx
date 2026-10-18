@@ -96,10 +96,17 @@ export default async function TimPage({
           </p>
         )}
 
-        {team.rejectionNote && (
-          <p className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-            {team.rejectionNote}
-          </p>
+        {team.status === "rejected" && (
+          <div className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-3 text-sm text-red-200">
+            <p>
+              Bukti ditolak. Upload ulang di bawah ini dulu. Menu peraturan,
+              jadwal, pemain, dan bagan baru terbuka setelah bukti baru
+              terkirim.
+            </p>
+            {team.rejectionNote && (
+              <p className="mt-2 text-red-300">{team.rejectionNote}</p>
+            )}
+          </div>
         )}
 
         <div className="panel mt-6 space-y-3 p-6 text-sm">

@@ -138,7 +138,9 @@ export async function savePaymentProofMeta(params: {
     },
   });
 
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/tim");
+  revalidatePath("/dashboard/peraturan");
   revalidatePath("/admin/pembayaran");
   return { success: "Bukti transfer terkirim. Menunggu konfirmasi admin." };
 }
@@ -215,6 +217,12 @@ export async function acceptTournamentRules(
   });
 
   if (!team) return { error: "Tim tidak ditemukan." };
+  if (team.status === "rejected") {
+    return {
+      error:
+        "Upload ulang bukti pembayaran dulu sebelum menyetujui peraturan.",
+    };
+  }
 
   await prisma.team.update({
     where: { id: team.id },

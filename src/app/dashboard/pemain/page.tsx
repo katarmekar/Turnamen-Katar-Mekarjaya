@@ -4,6 +4,10 @@ import { SiteHeader } from "@/components/site-header";
 import { AddPlayerForm } from "@/components/add-player-form";
 import { PlayersRosterTable } from "@/components/players-roster-table";
 import { requireProfile } from "@/lib/auth";
+import {
+  paymentReuploadRequired,
+  reuploadPaymentHref,
+} from "@/lib/payment-gate";
 import { ensureDefaultDocCards } from "@/lib/doc-cards";
 import { ensureDefaultPlayerFields } from "@/lib/player-fields";
 import { prisma } from "@/lib/prisma";
@@ -45,6 +49,15 @@ export default async function PemainPage({
   });
 
   if (!team) {
+    if (teamId) {
+      const owned = await prisma.team.findFirst({
+        where: { id: teamId, captainId: profile.id },
+        select: { id: true, status: true },
+      });
+      if (owned && paymentReuploadRequired(owned.status)) {
+        redirect(reuploadPaymentHref(owned.id));
+      }
+    }
     redirect("/dashboard/tim");
   }
 

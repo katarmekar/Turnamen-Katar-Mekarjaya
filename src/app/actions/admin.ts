@@ -223,8 +223,10 @@ export async function rejectPayment(
   });
 
   revalidatePath("/admin/pembayaran");
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/tim");
-  return { success: "Pembayaran ditolak. Manajer dapat upload ulang." };
+  revalidatePath("/dashboard/peraturan");
+  return { success: "Pembayaran ditolak. Manajer harus upload ulang sebelum lanjut." };
 }
 
 export async function saveTournament(
