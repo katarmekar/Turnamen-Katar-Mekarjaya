@@ -141,7 +141,7 @@ export default async function AdminPanelPage() {
     <div className="hex-grid min-h-screen">
       <SiteHeader profile={profile} showBagan />
       <main className="mx-auto max-w-6xl px-4 py-10">
-        <AdminSectionNav homeHref="/admin" />
+        <AdminSectionNav homeHref="/admin" homeLabel="Dashboard" />
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm uppercase tracking-[0.2em] text-[var(--accent)]">

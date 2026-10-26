@@ -47,8 +47,9 @@ export function LeagueSettingsFields({
         <div className="sm:col-span-2 grid gap-3 sm:grid-cols-3 rounded-lg border border-white/10 bg-white/[0.03] p-4">
           <p className="sm:col-span-3 text-xs text-[var(--muted)]">
             Fase grup: atur jumlah grup, kapasitas per grup (boleh kurang dari
-            maks.), dan berapa tim yang lolos ke fase gugur dari tiap grup.
-            Matriks hasil &amp; klasemen tampil di menu Bagan.
+            maks.), dan berapa tim yang lolos ke fase gugur dari tiap grup. Jika
+            jumlah tim ganjil, salah satu grup boleh berukuran ganjil. Matriks
+            hasil &amp; klasemen tampil di menu Bagan.
           </p>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-[var(--muted)]">Jumlah grup</span>

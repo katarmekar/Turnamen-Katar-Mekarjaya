@@ -43,7 +43,18 @@ export const PLAYER_DOC_LABELS: Record<
 /** @deprecated gunakan tournament.minPlayerDocuments / kartu wajib */
 export const MIN_PLAYER_DOCUMENTS = 2;
 
-export type TournamentMaxTeams = 8 | 16 | 32;
+/** Kapasitas pendaftaran turnamen (bukan ukuran bagan 2ⁿ). */
+export type TournamentMaxTeams = number;
+
+export function nextPowerOf2(n: number): number {
+  let p = 2;
+  while (p < n) p *= 2;
+  return p;
+}
+
+export function isPowerOf2(n: number): boolean {
+  return n >= 2 && (n & (n - 1)) === 0;
+}
 
 export function hasMinimumPlayerDocuments(
   documents: { docType: string }[],
@@ -53,23 +64,35 @@ export function hasMinimumPlayerDocuments(
   return uniqueTypes.size >= minimum;
 }
 
+/**
+ * Ukuran bagan knockout = 2ⁿ terdekat ≥ confirmed.
+ * Boleh lebih besar dari maxTeams jika kapasitas bukan power-of-2
+ * (mis. 15 tim → bagan 16 + 1 BYE).
+ */
 export function computeBracketSize(
   confirmedCount: number,
-  maxTeams: TournamentMaxTeams
-): TournamentMaxTeams {
+  maxTeams: number
+): number {
   if (confirmedCount < 2) {
     throw new Error("Minimal 2 tim untuk membuat bagan");
   }
-  const needed = [8, 16, 32].find((n) => n >= confirmedCount) as
-    | TournamentMaxTeams
-    | undefined;
-  if (!needed) {
-    throw new Error(`Jumlah tim melebihi kapasitas ${maxTeams}`);
+  if (confirmedCount > maxTeams) {
+    throw new Error(
+      `Jumlah tim confirmed (${confirmedCount}) melebihi kapasitas ${maxTeams}`
+    );
   }
-  if (needed > maxTeams) {
+
+  const needed = nextPowerOf2(confirmedCount);
+
+  if (needed > maxTeams && isPowerOf2(maxTeams)) {
     throw new Error(
       `Butuh bagan ${needed} tapi kapasitas turnamen hanya ${maxTeams}`
     );
   }
+
+  if (needed > 64) {
+    throw new Error(`Ukuran bagan ${needed} melebihi batas 64.`);
+  }
+
   return needed;
 }

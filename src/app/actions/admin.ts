@@ -276,8 +276,13 @@ export async function saveTournament(
     formData.get("competition_format") ?? "knockout"
   ) as "knockout" | "single_round_robin" | "double_round_robin";
 
-  if (!name || ![8, 16, 32].includes(maxTeams)) {
-    return { error: "Nama dan kapasitas (8/16/32) wajib valid." };
+  if (
+    !name ||
+    !Number.isInteger(maxTeams) ||
+    maxTeams < 2 ||
+    maxTeams > 64
+  ) {
+    return { error: "Nama wajib diisi. Kapasitas tim harus angka 2–64." };
   }
 
   if (

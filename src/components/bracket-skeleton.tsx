@@ -41,7 +41,8 @@ export function normalizeBracketSize(n: number) {
   if (n <= 4) return 4;
   if (n <= 8) return 8;
   if (n <= 16) return 16;
-  return 32;
+  if (n <= 32) return 32;
+  return 64;
 }
 
 function roundLabel(size: number, round: number, totalRounds: number) {
@@ -50,6 +51,8 @@ function roundLabel(size: number, round: number, totalRounds: number) {
   if (remaining === 4) return "SEMIFINAL";
   if (remaining === 8) return "PEREMPAT FINAL";
   if (remaining === 16) return "BABAK 16";
+  if (remaining === 32) return "BABAK 32";
+  if (remaining === 64) return "BABAK 64";
   return null;
 }
 

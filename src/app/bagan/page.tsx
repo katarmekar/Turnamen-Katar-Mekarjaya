@@ -22,7 +22,7 @@ export default async function BaganPage() {
         showBagan={profile?.role === "admin"}
       />
       <main className="mx-auto max-w-[90rem] px-4 py-10">
-        <AdminSectionNav homeHref="/" />
+        <AdminSectionNav homeHref="/" homeLabel="Beranda" />
         <div className="mt-4">
           <TournamentBracketView tournament={tournament} />
         </div>

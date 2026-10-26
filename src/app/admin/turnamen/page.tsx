@@ -38,7 +38,7 @@ export default async function AdminTurnamenPage({ searchParams }: PageProps) {
     <div className="hex-grid min-h-screen">
       <SiteHeader profile={profile} showBagan={!!selectedId} />
       <main className="mx-auto max-w-3xl px-4 py-10">
-        <AdminSectionNav homeHref="/admin" />
+        <AdminSectionNav homeHref="/admin/panel" homeLabel="Dashboard" />
         <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
           <h1 className="font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
             {active ? "Edit turnamen" : "Kelola turnamen"}
@@ -90,16 +90,21 @@ export default async function AdminTurnamenPage({ searchParams }: PageProps) {
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm">
-                <span className="text-[var(--muted)]">Kapasitas</span>
-                <select
+                <span className="text-[var(--muted)]">Kapasitas (jumlah tim)</span>
+                <input
                   name="max_teams"
+                  type="number"
+                  min={2}
+                  max={64}
                   className="input"
                   defaultValue={active?.maxTeams ?? 16}
-                >
-                  <option value={8}>8 tim</option>
-                  <option value={16}>16 tim</option>
-                  <option value={32}>32 tim</option>
-                </select>
+                  required
+                />
+                <span className="text-xs text-[var(--muted)]">
+                  Angka bebas 2–64. Sistem gugur: jika jumlah tim confirmed
+                  bukan 2ⁿ, sisa slot jadi BYE. Sistem liga: ukuran grup boleh
+                  beda (termasuk ganjil).
+                </span>
               </label>
               <LeagueSettingsFields
                 defaultFormat={active?.competitionFormat ?? "knockout"}

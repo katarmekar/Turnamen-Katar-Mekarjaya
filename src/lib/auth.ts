@@ -15,9 +15,14 @@ export async function getCurrentProfile() {
   const user = await getSessionUser();
   if (!user) return null;
 
-  return prisma.profile.findUnique({
-    where: { id: user.id },
-  });
+  try {
+    return await prisma.profile.findUnique({
+      where: { id: user.id },
+    });
+  } catch (err) {
+    console.error("[getCurrentProfile] database error", err);
+    return null;
+  }
 }
 
 export async function requireUser() {

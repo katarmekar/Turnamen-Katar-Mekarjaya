@@ -15,3 +15,4 @@ next-env.d.ts
 /prisma/*.db-journal
 
 .vercel
+supabase/.temp/

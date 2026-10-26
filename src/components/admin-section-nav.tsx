@@ -4,17 +4,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type SectionNavProps = {
-  /** Tujuan tombol Home (default: panel admin) */
+  /** Tujuan tombol Dashboard (default: panel turnamen aktif) */
   homeHref?: string;
+  /** Label tombol dashboard (default: Dashboard) */
+  homeLabel?: string;
   /** Fallback jika tidak ada history (default = homeHref) */
   backFallback?: string;
 };
 
 /**
- * Navigasi section: Kembali (history) + Home.
+ * Navigasi section: Kembali (history) + Dashboard.
  */
 export function AdminSectionNav({
-  homeHref = "/admin",
+  homeHref = "/admin/panel",
+  homeLabel = "Dashboard",
   backFallback,
 }: SectionNavProps = {}) {
   const router = useRouter();
@@ -36,7 +39,7 @@ export function AdminSectionNav({
         ← Kembali
       </button>
       <Link href={homeHref} className="btn-ghost">
-        Home
+        {homeLabel}
       </Link>
     </div>
   );

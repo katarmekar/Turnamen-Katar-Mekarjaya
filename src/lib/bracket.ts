@@ -8,7 +8,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import {
   computeBracketSize,
-  type TournamentMaxTeams,
+  nextPowerOf2,
 } from "@/types/database";
 
 const TX_OPTS = { maxWait: 15_000, timeout: 120_000 } as const;
@@ -29,12 +29,6 @@ type SlotKey = `${number}-${"left" | "right"}-${number}`;
 
 function key(round: number, side: "left" | "right", position: number): SlotKey {
   return `${round}-${side}-${position}`;
-}
-
-function nextPowerOf2(n: number): number {
-  let p = 2;
-  while (p < n) p *= 2;
-  return p;
 }
 
 /**
@@ -273,9 +267,9 @@ export async function generateKnockoutFromGroups(tournamentId: string) {
     throw new Error("Minimal 2 tim lolos untuk fase gugur.");
   }
 
-  const bracketSize = nextPowerOf2(qualifiers.length) as TournamentMaxTeams | number;
-  if (bracketSize > 32) {
-    throw new Error("Jumlah tim lolos terlalu banyak untuk bagan (maks 32).");
+  const bracketSize = nextPowerOf2(qualifiers.length);
+  if (bracketSize > 64) {
+    throw new Error("Jumlah tim lolos terlalu banyak untuk bagan (maks 64).");
   }
 
   const shuffled = shuffle(qualifiers.map((q) => q.teamId));
@@ -503,10 +497,7 @@ export async function generateBracket(tournamentId: string) {
     throw new Error("Minimal 2 tim confirmed untuk membuat bagan.");
   }
 
-  const bracketSize = computeBracketSize(
-    teams.length,
-    tournament.maxTeams as TournamentMaxTeams
-  );
+  const bracketSize = computeBracketSize(teams.length, tournament.maxTeams);
 
   const shuffled = shuffle(teams.map((t) => t.id));
   const byeCount = bracketSize - shuffled.length;
