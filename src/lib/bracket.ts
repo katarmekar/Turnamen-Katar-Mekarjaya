@@ -695,7 +695,13 @@ export async function generateBracket(tournamentId: string) {
     });
   }, TX_OPTS);
 
-  return { bracketSize, teamCount: teams.length, byeCount };
+  return {
+    mode: "knockout" as const,
+    bracketSize,
+    teamCount: teams.length,
+    byeCount,
+    matchCount: 0,
+  };
 }
 
 export async function submitMatchResult(params: {

@@ -416,11 +416,11 @@ export async function shuffleBracket(
     revalidatePath("/admin/bagan");
     revalidatePath("/admin/jadwal");
     revalidatePath("/bagan");
-    if ("mode" in result && result.mode && result.mode !== "knockout_from_groups") {
-      const groups =
-        "groupCount" in result && result.groupCount
-          ? ` · ${result.groupCount} grup`
-          : "";
+    if (
+      result.mode === "single_round_robin" ||
+      result.mode === "double_round_robin"
+    ) {
+      const groups = result.groupCount ? ` · ${result.groupCount} grup` : "";
       return {
         success: `Jadwal fase grup (${result.mode === "double_round_robin" ? "bertemu 2×" : "bertemu 1×"}): ${result.matchCount} pertandingan (${result.teamCount} tim${groups}). Tekan Tetapkan bagan jika sudah final.`,
       };
