@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { AdminSectionNav } from "@/components/admin-section-nav";
-import { SiteHeader } from "@/components/site-header";
+import { AdminPageShell } from "@/components/admin-page-shell";
 import { clearSelectedTournament } from "@/app/actions/admin";
 import { requireSelectedTournament } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
@@ -138,34 +137,30 @@ export default async function AdminPanelPage() {
   ];
 
   return (
-    <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} showBagan />
-      <main className="mx-auto max-w-6xl px-4 py-10">
-        <AdminSectionNav homeHref="/admin" homeLabel="Dashboard" />
-        <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-[var(--accent)]">
-              Turnamen aktif
-            </p>
-            <h1 className="mt-1 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white sm:text-5xl">
-              {tournament.name}
-            </h1>
-            <p className="mt-2 text-[var(--muted)]">
-              Status {tournament.status} ·{" "}
-              {COMPETITION_FORMAT_LABEL[tournament.competitionFormat] ??
-                tournament.competitionFormat}{" "}
-              · max {tournament.maxTeams} tim
-              {tournament.bracketLocked ? " · bagan terkunci" : ""}
-            </p>
-          </div>
-          <form action={clearSelectedTournament}>
-            <button type="submit" className="btn-ghost border border-white/15">
-              Ganti turnamen
-            </button>
-          </form>
-        </div>
-
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">
+    <AdminPageShell
+      profile={profile}
+      homeHref="/admin"
+      homeLabel="Dashboard"
+      eyebrow="Turnamen aktif"
+      title={tournament.name}
+      description={
+        <>
+          Status {tournament.status} ·{" "}
+          {COMPETITION_FORMAT_LABEL[tournament.competitionFormat] ??
+            tournament.competitionFormat}{" "}
+          · max {tournament.maxTeams} tim
+          {tournament.bracketLocked ? " · bagan terkunci" : ""}
+        </>
+      }
+      actions={
+        <form action={clearSelectedTournament}>
+          <button type="submit" className="btn-ghost border border-white/15">
+            Ganti turnamen
+          </button>
+        </form>
+      }
+    >
+        <div className="mt-2 grid gap-3 sm:grid-cols-3">
           {[
             { label: "Total tim", value: teamCount },
             { label: "Confirmed", value: confirmed },
@@ -333,7 +328,6 @@ export default async function AdminPanelPage() {
             ))}
           </div>
         </div>
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

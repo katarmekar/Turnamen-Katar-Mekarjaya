@@ -15,17 +15,22 @@ export default async function BaganPage() {
     // DB offline
   }
 
+  const hubHref =
+    profile?.role === "admin"
+      ? "/admin/panel"
+      : profile?.role === "captain"
+        ? "/dashboard"
+        : "/";
+
   return (
     <div className="hex-grid min-h-screen">
       <SiteHeader
         profile={profile}
         showBagan={profile?.role === "admin"}
+        below={<AdminSectionNav homeHref={hubHref} homeLabel="Beranda" />}
       />
-      <main className="mx-auto max-w-[90rem] px-4 py-10">
-        <AdminSectionNav homeHref="/" homeLabel="Beranda" />
-        <div className="mt-4">
-          <TournamentBracketView tournament={tournament} />
-        </div>
+      <main className="content-frame py-6">
+        <TournamentBracketView tournament={tournament} />
       </main>
     </div>
   );

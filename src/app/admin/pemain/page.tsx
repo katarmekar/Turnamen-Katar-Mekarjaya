@@ -1,9 +1,8 @@
-import { AdminSectionNav } from "@/components/admin-section-nav";
+import { AdminPageShell } from "@/components/admin-page-shell";
 import {
   AdminTeamsPlayersList,
   type AdminTeamPlayersView,
 } from "@/components/admin-teams-players-list";
-import { SiteHeader } from "@/components/site-header";
 import { requireSelectedTournament } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -112,18 +111,11 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
   }));
 
   return (
-    <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} showBagan />
-      <main className="mx-auto max-w-5xl px-4 py-10">
-        <AdminSectionNav homeHref="/admin/panel" />
-        <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          Pemain & berkas
-        </h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          {tournament.name} · {teams.length} tim · {totalPlayers} pemain ·{" "}
-          {totalDocs} berkas · klik nama tim untuk buka/tutup detail
-        </p>
-
+    <AdminPageShell
+      profile={profile}
+      title="Pemain & berkas"
+      description={`${tournament.name} · ${teams.length} tim · ${totalPlayers} pemain · ${totalDocs} berkas · klik nama tim untuk buka/tutup detail`}
+    >
         {teams.length === 0 ? (
           <div className="panel mt-6 p-6">
             <p className="text-sm text-[var(--muted)]">
@@ -136,7 +128,6 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
             initialOpenTeamId={focusTeamId}
           />
         )}
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

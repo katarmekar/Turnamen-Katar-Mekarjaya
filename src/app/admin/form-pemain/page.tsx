@@ -1,5 +1,4 @@
-import { AdminSectionNav } from "@/components/admin-section-nav";
-import { SiteHeader } from "@/components/site-header";
+import { AdminPageShell } from "@/components/admin-page-shell";
 import { ActionForm } from "@/components/action-form-status";
 import {
   deletePlayerField,
@@ -27,18 +26,11 @@ export default async function AdminFormPemainPage() {
   });
 
   return (
-    <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} showBagan />
-      <main className="mx-auto max-w-6xl px-4 py-10">
-        <AdminSectionNav homeHref="/admin/panel" />
-        <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          Form data pemain
-        </h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          {tournament.name} — atur field yang tampil di form “Tambah pemain”
-          manajer. Ubah lalu tekan Simpan di baris yang sama.
-        </p>
-
+    <AdminPageShell
+      profile={profile}
+      title="Form data pemain"
+      description={`${tournament.name} — atur field yang tampil di form “Tambah pemain” manajer. Ubah lalu tekan Simpan di baris yang sama.`}
+    >
         <div className="panel mt-6 overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
             <p className="text-sm font-medium text-white">
@@ -292,7 +284,6 @@ export default async function AdminFormPemainPage() {
             </table>
           </div>
         </div>
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

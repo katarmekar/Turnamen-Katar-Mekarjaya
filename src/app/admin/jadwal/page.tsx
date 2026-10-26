@@ -1,5 +1,4 @@
-import { AdminSectionNav } from "@/components/admin-section-nav";
-import { SiteHeader } from "@/components/site-header";
+import { AdminPageShell } from "@/components/admin-page-shell";
 import { ActionForm } from "@/components/action-form-status";
 import { submitScore, updateMatchSchedule } from "@/app/actions/admin";
 import { requireSelectedTournament } from "@/lib/admin-tournament";
@@ -23,15 +22,11 @@ export default async function AdminJadwalPage() {
   });
 
   return (
-    <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} showBagan />
-      <main className="mx-auto max-w-4xl px-4 py-10">
-        <AdminSectionNav homeHref="/admin/panel" />
-        <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          Jadwal & skor
-        </h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">{tournament.name}</p>
-
+    <AdminPageShell
+      profile={profile}
+      title="Jadwal & skor"
+      description={tournament.name}
+    >
         {matches.length === 0 ? (
           <p className="mt-6 text-sm text-[var(--muted)]">
             Belum ada pertandingan. Buat bagan / jadwal dulu di menu Acak bagan.
@@ -199,7 +194,6 @@ export default async function AdminJadwalPage() {
             })}
           </div>
         )}
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

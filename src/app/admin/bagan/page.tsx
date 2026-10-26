@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { AdminSectionNav } from "@/components/admin-section-nav";
+import { AdminPageShell } from "@/components/admin-page-shell";
 import { BracketShufflePanel } from "@/components/bracket-shuffle-panel";
-import { SiteHeader } from "@/components/site-header";
 import { requireSelectedTournament } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -48,46 +47,37 @@ export default async function AdminBaganPage() {
   );
 
   return (
-    <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} showBagan />
-      <main className="mx-auto max-w-[90rem] px-4 py-10">
-        <AdminSectionNav homeHref="/admin/panel" />
-        <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-              Acak / buat bagan
-            </h1>
-            <p className="mt-1 text-sm text-[var(--muted)]">{tournament.name}</p>
-          </div>
-          <Link
-            href="/bagan"
-            className="btn-ghost inline-flex border border-white/15"
-          >
-            Lihat bagan publik
-          </Link>
-        </div>
-
-        <div className="mt-6">
-          <BracketShufflePanel
-            tournamentId={tournament.id}
-            tournamentName={tournament.name}
-            status={tournament.status}
-            competitionFormat={tournament.competitionFormat}
-            maxTeams={tournament.maxTeams}
-            bracketSize={tournament.bracketSize}
-            bracketLocked={tournament.bracketLocked}
-            matchCount={tournament._count.matches}
-            groupCount={tournament.groupCount}
-            maxTeamsPerGroup={tournament.maxTeamsPerGroup}
-            qualifyPerGroup={tournament.qualifyPerGroup}
-            teams={tournament.teams}
-            slots={tournament.bracketSlots}
-            matches={tournament.matches}
-            pendingGroupMatches={pendingGroupMatches}
-            hasKnockoutPhase={hasKnockoutPhase}
-          />
-        </div>
-      </main>
-    </div>
+    <AdminPageShell
+      profile={profile}
+      title="Acak / buat bagan"
+      description={tournament.name}
+      actions={
+        <Link
+          href="/bagan"
+          className="btn-ghost inline-flex border border-white/15"
+        >
+          Lihat bagan publik
+        </Link>
+      }
+    >
+        <BracketShufflePanel
+          tournamentId={tournament.id}
+          tournamentName={tournament.name}
+          status={tournament.status}
+          competitionFormat={tournament.competitionFormat}
+          maxTeams={tournament.maxTeams}
+          bracketSize={tournament.bracketSize}
+          bracketLocked={tournament.bracketLocked}
+          matchCount={tournament._count.matches}
+          groupCount={tournament.groupCount}
+          maxTeamsPerGroup={tournament.maxTeamsPerGroup}
+          qualifyPerGroup={tournament.qualifyPerGroup}
+          teams={tournament.teams}
+          slots={tournament.bracketSlots}
+          matches={tournament.matches}
+          pendingGroupMatches={pendingGroupMatches}
+          hasKnockoutPhase={hasKnockoutPhase}
+        />
+    </AdminPageShell>
   );
 }

@@ -90,10 +90,10 @@ export default async function DashboardPage() {
     <div className="hex-grid min-h-screen">
       <SiteHeader profile={profile} compactNav />
       <main className="mx-auto max-w-[90rem] px-4 py-10">
-        <h1 className="font-[family-name:var(--font-display)] text-5xl tracking-wide text-white">
+        <h1 className="page-title text-5xl text-white">
           Dashboard manajer
         </h1>
-        <p className="mt-2 text-[var(--muted)]">
+        <p className="mt-2 text-base leading-relaxed text-[var(--muted)]">
           Halo, {profile.fullName ?? "Manajer"}. Kelola tim dan pantau bagan
           turnamen di satu tempat.
         </p>
@@ -415,10 +415,10 @@ export default async function DashboardPage() {
                 ? "Sistem liga (fase grup)"
                 : "Sistem gugur"}
             </p>
-            <h2 className="mt-1 font-[family-name:var(--font-display)] text-3xl tracking-wide text-white sm:text-4xl">
+            <h2 className="page-title mt-1 text-3xl text-white sm:text-4xl">
               Bagan pertandingan
             </h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">
+            <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
               {bracketTournament
                 ? `Turnamen: ${bracketTournament.name}`
                 : "Belum ada turnamen aktif untuk ditampilkan."}

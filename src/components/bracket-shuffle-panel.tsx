@@ -357,13 +357,13 @@ export function BracketShufflePanel({
         }
         setMessage({
           type: "ok",
-          text: result.success ?? "Bagan ditetapkan.",
+          text: result.success ?? "Bagan dikonfirmasi.",
         });
         router.refresh();
       } catch (e) {
         setMessage({
           type: "err",
-          text: e instanceof Error ? e.message : "Gagal menetapkan bagan",
+          text: e instanceof Error ? e.message : "Gagal mengonfirmasi bagan",
         });
       }
     });
@@ -444,7 +444,7 @@ export function BracketShufflePanel({
                 disabled={!canLock}
                 onClick={handleLock}
               >
-                {pending && !shuffling ? "Menetapkan..." : "Tetapkan bagan"}
+                {pending && !shuffling ? "Mengonfirmasi..." : "Konfirmasi bagan"}
               </button>
             )}
             {canStartKo && (
@@ -470,8 +470,8 @@ export function BracketShufflePanel({
               ? "Nama tim sedang berputar di slot bagan — tekan Stop & simpan untuk menetapkan."
               : "Nama tim sedang berpindah antar grup — tekan Stop & simpan untuk menetapkan pembagian."
             : isKnockout
-              ? "Acak tim ke bagan dengan efek putar nama, lalu Stop & simpan. Setelah itu Tetapkan bagan."
-              : "Acak ke grup: nama berputar antar grup sampai Stop. Lalu Tetapkan bagan."}{" "}
+              ? "Acak tim ke bagan dengan efek putar nama, lalu Stop & simpan. Setelah itu Konfirmasi bagan."
+              : "Acak ke grup: nama berputar antar grup sampai Stop. Lalu Konfirmasi bagan."}{" "}
           {bracketLocked
             ? hasKnockoutPhase
               ? "Fase grup selesai / fase gugur sudah dibuat."

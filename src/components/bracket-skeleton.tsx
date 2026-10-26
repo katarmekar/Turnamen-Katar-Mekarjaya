@@ -337,7 +337,7 @@ function ChampionCenter({
           fontSize="28"
           fontWeight="800"
           letterSpacing="6"
-          fontFamily="var(--font-display), Impact, sans-serif"
+          fontFamily="var(--font-body), 'Plus Jakarta Sans', system-ui, sans-serif"
         >
           <textPath href="#champArc" startOffset="50%" textAnchor="middle">
             CHAMPION

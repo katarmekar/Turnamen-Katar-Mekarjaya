@@ -1,5 +1,4 @@
-import { AdminSectionNav } from "@/components/admin-section-nav";
-import { SiteHeader } from "@/components/site-header";
+import { AdminPageShell } from "@/components/admin-page-shell";
 import { ActionForm } from "@/components/action-form-status";
 import {
   deleteDocCard,
@@ -27,20 +26,18 @@ export default async function AdminDokumenPage() {
   ]);
 
   return (
-    <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} showBagan />
-      <main className="mx-auto max-w-4xl px-4 py-10">
-        <AdminSectionNav homeHref="/admin/panel" />
-        <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          Kelola kartu dokumen
-        </h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">
+    <AdminPageShell
+      profile={profile}
+      title="Kelola kartu dokumen"
+      description={
+        <>
           {fresh.name} — atur kartu yang muncul saat manajer upload berkas pemain.
           Kartu bertanda <strong className="text-white">wajib</strong> harus
           diupload semua. Jika tidak ada yang wajib, dipakai minimal jumlah di
           bawah.
-        </p>
-
+        </>
+      }
+    >
         <div className="panel mt-6 p-6">
           <h2 className="font-semibold text-white">Syarat minimal</h2>
           <ActionForm
@@ -235,7 +232,6 @@ export default async function AdminDokumenPage() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

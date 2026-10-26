@@ -1,5 +1,4 @@
-import { AdminSectionNav } from "@/components/admin-section-nav";
-import { SiteHeader } from "@/components/site-header";
+import { AdminPageShell } from "@/components/admin-page-shell";
 import { TournamentPickList } from "@/components/tournament-pick-list";
 import { getSelectedTournamentId } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
@@ -18,18 +17,13 @@ export default async function AdminPilihTurnamenPage() {
   ]);
 
   return (
-    <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} showBagan={!!selectedId} />
-      <main className="mx-auto max-w-3xl px-4 py-10">
-        <AdminSectionNav homeHref="/admin" homeLabel="Dashboard" />
-        <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          Pilih turnamen
-        </h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          Pilih turnamen yang ingin dikelola. Setelah itu Anda masuk ke panel
-          pembayaran, bagan, dan jadwal.
-        </p>
-
+    <AdminPageShell
+      profile={profile}
+      homeHref="/admin"
+      showBagan={!!selectedId}
+      title="Pilih turnamen"
+      description="Pilih turnamen yang ingin dikelola. Setelah itu Anda masuk ke panel pembayaran, bagan, dan jadwal."
+    >
         {tournaments.length === 0 ? (
           <div className="panel mt-6 space-y-3 p-6">
             <p className="text-sm text-[var(--muted)]">
@@ -58,7 +52,6 @@ export default async function AdminPilihTurnamenPage() {
             }))}
           />
         )}
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

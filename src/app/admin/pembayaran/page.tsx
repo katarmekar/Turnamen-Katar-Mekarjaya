@@ -1,5 +1,4 @@
-import { AdminSectionNav } from "@/components/admin-section-nav";
-import { SiteHeader } from "@/components/site-header";
+import { AdminPageShell } from "@/components/admin-page-shell";
 import { ActionForm } from "@/components/action-form-status";
 import { confirmPayment, rejectPayment } from "@/app/actions/admin";
 import { requireSelectedTournament } from "@/lib/admin-tournament";
@@ -66,18 +65,11 @@ export default async function AdminPembayaranPage() {
   );
 
   return (
-    <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} showBagan />
-      <main className="mx-auto max-w-3xl px-4 py-10">
-        <AdminSectionNav homeHref="/admin/panel" />
-        <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          Konfirmasi pembayaran
-        </h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          {tournament.name} · {awaiting.length} menunggu · {confirmed.length}{" "}
-          terkonfirmasi
-        </p>
-
+    <AdminPageShell
+      profile={profile}
+      title="Konfirmasi pembayaran"
+      description={`${tournament.name} · ${awaiting.length} menunggu · ${confirmed.length} terkonfirmasi`}
+    >
         <div className="mt-6 space-y-4">
           {withUrls.length === 0 && (
             <p className="text-sm text-[var(--muted)]">
@@ -209,7 +201,6 @@ export default async function AdminPembayaranPage() {
             }
           )}
         </div>
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

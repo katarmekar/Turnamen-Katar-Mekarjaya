@@ -8,7 +8,9 @@
   --accent: #38bdf8;
   --accent-strong: #e11d48;
   --text: #e8eefc;
-  --muted: #8b9bb8;
+  /* Kontras lebih tinggi di latar gelap (status, jadwal, deskripsi) */
+  --muted: #b4c0d6;
+  --font-display: var(--font-body);
   --glow: 0 0 24px rgba(56, 189, 248, 0.25);
   --panel-glow:
     0 1px 0 rgba(255, 255, 255, 0.1),
@@ -20,7 +22,7 @@
 
 @theme inline {
   --font-sans: var(--font-body);
-  --font-display: var(--font-display);
+  --font-display: var(--font-body);
 }
 
 * {
@@ -32,6 +34,10 @@ body {
   min-height: 100%;
 }
 
+html {
+  background-color: var(--bg);
+}
+
 body {
   margin: 0;
   color: var(--text);
@@ -39,7 +45,16 @@ body {
     radial-gradient(ellipse 80% 50% at 50% -10%, rgba(56, 189, 248, 0.12), transparent),
     radial-gradient(ellipse 40% 30% at 100% 0%, rgba(225, 29, 72, 0.08), transparent),
     linear-gradient(180deg, #0a1020 0%, var(--bg) 40%, #050810 100%);
-  font-family: var(--font-body), system-ui, sans-serif;
+  background-attachment: fixed;
+  font-family: var(--font-body), "Plus Jakarta Sans", system-ui, sans-serif;
+  font-weight: 400;
+}
+
+.page-title,
+[class*="family-name:var(--font-display)"] {
+  font-family: var(--font-body), "Plus Jakarta Sans", system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 a {
@@ -172,6 +187,68 @@ select.input option:hover {
   color: white;
 }
 
+.content-frame {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  padding-inline: 1rem;
+}
+
+@media (min-width: 640px) {
+  .content-frame {
+    padding-inline: 1.5rem;
+  }
+}
+
+.site-header-stack {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.site-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(14, 21, 40, 0.96);
+}
+
+.site-header-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 4.5rem;
+  padding-block: 0.85rem;
+}
+
+.site-brand {
+  font-family: var(--font-body), "Plus Jakarta Sans", system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #fff;
+}
+
+.site-nav-link {
+  display: block;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.site-nav-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.site-header-below {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(14, 21, 40, 0.98);
+  padding-block: 0.85rem 1rem;
+}
+
 .site-nav {
   display: none;
   flex-direction: column;
@@ -208,6 +285,17 @@ select.input option:hover {
     padding: 0;
     box-shadow: none;
   }
+
+  .site-nav-link {
+    display: inline;
+    border-radius: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .site-nav-link:hover {
+    background: transparent;
+  }
 }
 
 .panel {
@@ -231,7 +319,9 @@ select.input option:hover {
 }
 
 .hex-grid {
+  min-height: 100vh;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%2338bdf8' fill-opacity='0.04'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.99-7.5L28 15v18.5l-15.01 7.5L0 33.5V15z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  background-attachment: fixed;
 }
 
 /* RW catalog-style glass scroll picker */
@@ -559,7 +649,7 @@ select.input option:hover {
 
 .success-title {
   margin: 0;
-  font-family: var(--font-display), system-ui, sans-serif;
+  font-family: var(--font-body), "Plus Jakarta Sans", system-ui, sans-serif;
   font-size: 1.75rem;
   letter-spacing: 0.04em;
   color: white;
@@ -1077,7 +1167,7 @@ select.input option:hover {
 
 .rules-doc__title {
   margin: 0.45rem 0 0;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-body), "Plus Jakarta Sans", sans-serif;
   font-size: clamp(1.85rem, 4vw, 2.5rem);
   letter-spacing: 0.04em;
   line-height: 1.1;
@@ -1160,7 +1250,7 @@ select.input option:hover {
   margin: 0;
   flex: 1;
   min-width: 10rem;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-body), "Plus Jakarta Sans", sans-serif;
   font-size: 1.35rem;
   letter-spacing: 0.03em;
   color: #0f172a;

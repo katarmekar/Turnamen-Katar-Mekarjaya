@@ -219,7 +219,7 @@ export async function generateKnockoutFromGroups(tournamentId: string) {
     throw new Error("Hanya untuk sistem liga dengan fase grup.");
   }
   if (!tournament.bracketLocked) {
-    throw new Error("Tetapkan bagan dulu sebelum membuat fase gugur.");
+    throw new Error("Konfirmasi bagan dulu sebelum membuat fase gugur.");
   }
 
   const qualifyPerGroup = tournament.qualifyPerGroup ?? 0;
@@ -754,7 +754,7 @@ export async function submitMatchResult(params: {
 
   if (!match.tournament.bracketLocked) {
     throw new Error(
-      "Bagan belum ditetapkan. Tetapkan bagan di menu Acak/bagan sebelum mengisi skor."
+      "Bagan belum dikonfirmasi. Konfirmasi bagan di menu Acak/bagan sebelum mengisi skor."
     );
   }
 

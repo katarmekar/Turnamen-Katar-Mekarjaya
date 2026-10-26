@@ -1,15 +1,10 @@
 import type { Metadata } from "next";
-import { Bebas_Neue, DM_Sans } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const display = Bebas_Neue({
-  weight: "400",
+const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-display",
-});
-
-const body = DM_Sans({
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-body",
 });
 
@@ -25,9 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
-      <body className={`${display.variable} ${body.variable} antialiased`}>
-        {children}
-      </body>
+      <body className={`${plusJakarta.variable} antialiased`}>{children}</body>
     </html>
   );
 }

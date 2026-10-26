@@ -1,6 +1,5 @@
-import { AdminSectionNav } from "@/components/admin-section-nav";
+import { AdminPageShell } from "@/components/admin-page-shell";
 import { ManagerPasswordActions } from "@/components/manager-password-actions";
-import { SiteHeader } from "@/components/site-header";
 import { requireSelectedTournament } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
 import {
@@ -58,18 +57,11 @@ export default async function AdminManajerPage() {
   ).length;
 
   return (
-    <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} showBagan />
-      <main className="mx-auto max-w-[90rem] px-4 py-10">
-        <AdminSectionNav homeHref="/admin/panel" />
-        <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          Rekap manajer
-        </h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          {tournament.name} — daftar manajer/tim, kontak, status, dan reset
-          password.
-        </p>
-
+    <AdminPageShell
+      profile={profile}
+      title="Rekap manajer"
+      description={`${tournament.name} — daftar manajer/tim, kontak, status, dan reset password.`}
+    >
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <div className="panel p-4">
             <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
@@ -227,7 +219,6 @@ export default async function AdminManajerPage() {
             </table>
           </div>
         )}
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

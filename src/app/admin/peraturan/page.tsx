@@ -1,8 +1,7 @@
-import { AdminSectionNav } from "@/components/admin-section-nav";
+import { AdminPageShell } from "@/components/admin-page-shell";
 import { RuleEditorPanel } from "@/components/rule-editor-panel";
 import { RulesDocument } from "@/components/rules-document";
 import { RulesHeaderEditor } from "@/components/rules-header-editor";
-import { SiteHeader } from "@/components/site-header";
 import { seedDefaultTournamentRules } from "@/app/actions/rules";
 import { requireSelectedTournament } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
@@ -30,18 +29,11 @@ export default async function AdminPeraturanPage() {
     rules.reduce((max, r) => Math.max(max, r.pasalNumber), 0) + 1;
 
   return (
-    <div className="hex-grid min-h-screen">
-      <SiteHeader profile={profile} showBagan />
-      <main className="mx-auto max-w-4xl px-4 py-10">
-        <AdminSectionNav homeHref="/admin/panel" />
-        <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          Peraturan turnamen
-        </h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          {fresh.name} · versi {fresh.rulesVersion}. Edit header dokumen, lalu
-          setiap pasal (nomor, judul, isi).
-        </p>
-
+    <AdminPageShell
+      profile={profile}
+      title="Peraturan turnamen"
+      description={`${fresh.name} · versi ${fresh.rulesVersion}. Edit header dokumen, lalu setiap pasal (nomor, judul, isi).`}
+    >
         {rules.length === 0 && (
           <div className="panel mt-6 p-6">
             <p className="text-sm text-[var(--muted)]">
@@ -100,7 +92,6 @@ export default async function AdminPeraturanPage() {
             rules={rules}
           />
         </div>
-      </main>
-    </div>
+    </AdminPageShell>
   );
 }

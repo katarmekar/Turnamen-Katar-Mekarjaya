@@ -422,11 +422,11 @@ export async function shuffleBracket(
     ) {
       const groups = result.groupCount ? ` · ${result.groupCount} grup` : "";
       return {
-        success: `Jadwal fase grup (${result.mode === "double_round_robin" ? "bertemu 2×" : "bertemu 1×"}): ${result.matchCount} pertandingan (${result.teamCount} tim${groups}). Tekan Tetapkan bagan jika sudah final.`,
+        success: `Jadwal fase grup (${result.mode === "double_round_robin" ? "bertemu 2×" : "bertemu 1×"}): ${result.matchCount} pertandingan (${result.teamCount} tim${groups}). Tekan Konfirmasi bagan jika sudah final.`,
       };
     }
     return {
-      success: `Bagan sistem gugur ${result.bracketSize} dibuat (${result.teamCount} tim, ${result.byeCount} BYE). Tekan Tetapkan bagan jika sudah final.`,
+      success: `Bagan sistem gugur ${result.bracketSize} dibuat (${result.teamCount} tim, ${result.byeCount} BYE). Tekan Konfirmasi bagan jika sudah final.`,
     };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Gagal membuat bagan" };
@@ -470,13 +470,13 @@ export async function lockBracket(
 
   if (!tournament) return { error: "Turnamen tidak ditemukan." };
   if (tournament.bracketLocked) {
-    return { error: "Bagan sudah ditetapkan / terkunci." };
+    return { error: "Bagan sudah dikonfirmasi / terkunci." };
   }
   if (
     tournament._count.matches < 1 &&
     tournament._count.bracketSlots < 1
   ) {
-    return { error: "Acak bagan dulu sebelum menetapkan." };
+    return { error: "Acak bagan dulu sebelum mengonfirmasi." };
   }
   if (tournament.status === "done") {
     return { error: "Turnamen sudah selesai." };
@@ -496,7 +496,7 @@ export async function lockBracket(
   revalidatePath("/bagan");
   return {
     success:
-      "Bagan ditetapkan dan terkunci. Tidak bisa diacak ulang sampai pertandingan selesai.",
+      "Bagan dikonfirmasi dan terkunci. Tidak bisa diacak ulang sampai pertandingan selesai.",
   };
 }
 
