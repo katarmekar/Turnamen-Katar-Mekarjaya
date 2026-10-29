@@ -11,6 +11,7 @@ import {
 import { ensureDefaultDocCards } from "@/lib/doc-cards";
 import { ensureDefaultPlayerFields } from "@/lib/player-fields";
 import { prisma } from "@/lib/prisma";
+import { isRosterLocked } from "@/lib/roster-lock";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -115,7 +116,7 @@ export default async function PemainPage({
     documents: p.documents.map((d) => ({ id: d.id, docType: d.docType })),
   }));
 
-  const rosterLocked = team.tournament.bracketLocked;
+  const rosterLocked = await isRosterLocked(team.tournamentId);
 
   const fieldDefs = activeFields.map((f) => ({
     id: f.id,
@@ -156,8 +157,8 @@ export default async function PemainPage({
           <div className="panel mt-6 border border-amber-400/30 p-6">
             <h2 className="font-semibold text-white">Data pemain terkunci</h2>
             <p className="mt-1 text-sm text-amber-200">
-              Bagan sudah ditetapkan. Tambah, edit, ganti, dan hapus data pemain
-              tidak bisa dilakukan lagi.
+              Jadwal pertandingan pertama sudah dimulai. Tambah, edit, ganti,
+              dan hapus data pemain tidak bisa dilakukan lagi.
             </p>
           </div>
         ) : (
@@ -186,7 +187,7 @@ export default async function PemainPage({
             <h2 className="font-semibold text-white">Daftar pemain</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
               {rosterLocked
-                ? "Data hanya bisa dilihat. Perubahan terkunci setelah bagan ditetapkan."
+                ? "Data hanya bisa dilihat. Perubahan terkunci setelah jadwal pertandingan pertama dimulai."
                 : "Edit data, tambah berkas, atau hapus pemain dari daftar."}
             </p>
           </div>

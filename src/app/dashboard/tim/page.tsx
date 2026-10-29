@@ -10,6 +10,7 @@ import {
   whatsappChatHref,
 } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
+import { isRosterLocked } from "@/lib/roster-lock";
 
 export default async function TimPage({
   searchParams,
@@ -45,6 +46,7 @@ export default async function TimPage({
   const t = team.tournament;
   const canUpload = ["pending_payment", "rejected"].includes(team.status);
   const awaitingConfirm = team.status === "awaiting_confirm";
+  const rosterLocked = await isRosterLocked(team.tournamentId);
 
   const waHref = whatsappChatHref(
     t.adminWhatsapp,
@@ -181,15 +183,15 @@ export default async function TimPage({
         {team.status === "confirmed" && (
           <div className="panel mt-4 p-6">
             <p className="text-sm text-emerald-300">
-              {t.bracketLocked
-                ? "Pembayaran dikonfirmasi. Bagan sudah ditetapkan, data pemain hanya bisa dilihat."
+              {rosterLocked
+                ? "Pembayaran dikonfirmasi. Jadwal pertandingan pertama sudah dimulai, data pemain hanya bisa dilihat."
                 : "Pembayaran dikonfirmasi. Anda dapat mengisi data pemain."}
             </p>
             <Link
               href={`/dashboard/pemain?teamId=${team.id}`}
               className="btn-primary mt-4 inline-flex"
             >
-              {t.bracketLocked ? "Lihat pemain" : "Kelola pemain"}
+              {rosterLocked ? "Lihat pemain" : "Kelola pemain"}
             </Link>
           </div>
         )}

@@ -9,6 +9,7 @@ import {
   paymentReuploadRequired,
   reuploadPaymentHref,
 } from "@/lib/payment-gate";
+import { getRosterLockedMap } from "@/lib/roster-lock";
 import { getTournamentForBracket } from "@/lib/tournament-bracket";
 import { hasAcceptedCurrentRules } from "@/lib/tournament-rules";
 
@@ -57,34 +58,36 @@ export default async function DashboardPage() {
       })
     : false;
 
-  const [openCount, matches, bracketTournament] = await Promise.all([
-    prisma.tournament.count({
-      where: {
-        status: "open",
-        NOT: {
-          id: { in: teams.map((t) => t.tournamentId) },
+  const [openCount, matches, bracketTournament, rosterLockedMap] =
+    await Promise.all([
+      prisma.tournament.count({
+        where: {
+          status: "open",
+          NOT: {
+            id: { in: teams.map((t) => t.tournamentId) },
+          },
         },
-      },
-    }),
-    team && rulesAccepted
-      ? prisma.match.findMany({
-          where: {
-            OR: [
-              { slotA: { teamId: team.id } },
-              { slotB: { teamId: team.id } },
-            ],
-          },
-          include: {
-            slotA: { include: { team: true } },
-            slotB: { include: { team: true } },
-            winnerTeam: true,
-          },
-          orderBy: [{ scheduledAt: "asc" }, { round: "asc" }],
-          take: 8,
-        })
-      : Promise.resolve([]),
-    getTournamentForBracket(team?.tournamentId),
-  ]);
+      }),
+      team && rulesAccepted
+        ? prisma.match.findMany({
+            where: {
+              OR: [
+                { slotA: { teamId: team.id } },
+                { slotB: { teamId: team.id } },
+              ],
+            },
+            include: {
+              slotA: { include: { team: true } },
+              slotB: { include: { team: true } },
+              winnerTeam: true,
+            },
+            orderBy: [{ scheduledAt: "asc" }, { round: "asc" }],
+            take: 8,
+          })
+        : Promise.resolve([]),
+      getTournamentForBracket(team?.tournamentId),
+      getRosterLockedMap(teams.map((t) => t.tournamentId)),
+    ]);
 
   return (
     <div className="hex-grid min-h-screen">
@@ -321,10 +324,14 @@ export default async function DashboardPage() {
               <h2 className="text-lg font-semibold text-white">Pemain</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
                 {confirmedTeams.length > 0 &&
-                confirmedTeams.every((t) => t.tournament.bracketLocked)
-                  ? "Setelah bagan ditetapkan, data pemain hanya bisa dilihat."
-                  : confirmedTeams.some((t) => t.tournament.bracketLocked)
-                    ? "Tim yang bagannya sudah ditetapkan hanya bisa dilihat. Tim lain masih bisa dikelola."
+                confirmedTeams.every((t) =>
+                  rosterLockedMap.get(t.tournamentId)
+                )
+                  ? "Setelah jadwal pertandingan pertama dimulai, data pemain hanya bisa dilihat."
+                  : confirmedTeams.some((t) =>
+                        rosterLockedMap.get(t.tournamentId)
+                      )
+                    ? "Tim yang jadwal pertandingan pertamanya sudah dimulai hanya bisa dilihat. Tim lain masih bisa dikelola."
                     : "Lihat daftar nama di sini. Tambah, edit, atau hapus lewat kelola pemain."}
               </p>
             </div>
@@ -333,7 +340,7 @@ export default async function DashboardPage() {
                 href={`/dashboard/pemain?teamId=${confirmedTeams[0].id}`}
                 className="btn-primary shrink-0"
               >
-                {confirmedTeams[0].tournament.bracketLocked
+                {rosterLockedMap.get(confirmedTeams[0].tournamentId)
                   ? "Lihat pemain"
                   : "Kelola pemain"}
               </Link>
@@ -361,7 +368,9 @@ export default async function DashboardPage() {
                         href={`/dashboard/pemain?teamId=${t.id}`}
                         className="text-xs text-[var(--accent)] hover:underline"
                       >
-                        {t.tournament.bracketLocked ? "Lihat" : "Kelola"}
+                        {rosterLockedMap.get(t.tournamentId)
+                          ? "Lihat"
+                          : "Kelola"}
                       </Link>
                     </div>
                   )}
@@ -370,8 +379,8 @@ export default async function DashboardPage() {
                   </p>
                   {t.players.length === 0 ? (
                     <p className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-4 text-sm text-[var(--muted)]">
-                      {t.tournament.bracketLocked
-                        ? "Belum ada pemain. Bagan sudah ditetapkan, data tidak bisa ditambah."
+                      {rosterLockedMap.get(t.tournamentId)
+                        ? "Belum ada pemain. Jadwal pertandingan pertama sudah dimulai, data tidak bisa ditambah."
                         : "Belum ada pemain. Masuk ke kelola pemain untuk menambah."}
                     </p>
                   ) : (
