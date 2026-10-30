@@ -488,8 +488,10 @@ export async function addPlayerWithDocuments(
 
   const allowed = team.tournament.docCards.filter((c) => c.active);
   const requiredCards = allowed.filter((c) => c.required);
-  const minNeeded =
-    requiredCards.length > 0
+  // Admin boleh simpan tanpa berkas; manajer tetap wajib sesuai aturan turnamen.
+  const minNeeded = isAdmin
+    ? 0
+    : requiredCards.length > 0
       ? requiredCards.length
       : Math.max(1, team.tournament.minPlayerDocuments);
 
@@ -514,7 +516,7 @@ export async function addPlayerWithDocuments(
     };
   }
 
-  if (requiredCards.length > 0) {
+  if (!isAdmin && requiredCards.length > 0) {
     const missing = requiredCards.filter(
       (c) => !docs.some((d) => d.docType === c.key)
     );
@@ -581,6 +583,9 @@ export async function addPlayerWithDocuments(
   revalidatePlayerPaths(isAdmin);
   return {
     playerId: player.id,
-    success: `Pemain ${parsed.data.fullName} dan ${docs.length} berkas berhasil disimpan.`,
+    success:
+      docs.length > 0
+        ? `Pemain ${parsed.data.fullName} dan ${docs.length} berkas berhasil disimpan.`
+        : `Pemain ${parsed.data.fullName} berhasil disimpan.`,
   };
 }

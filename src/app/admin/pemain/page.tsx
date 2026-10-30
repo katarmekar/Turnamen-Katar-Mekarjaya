@@ -5,8 +5,6 @@ import { requireRole } from "@/lib/auth";
 import { ensureDefaultDocCards } from "@/lib/doc-cards";
 import { ensureDefaultPlayerFields } from "@/lib/player-fields";
 import { prisma } from "@/lib/prisma";
-import { createServiceClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 
 type PageProps = {
   searchParams: Promise<{ teamId?: string }>;
@@ -49,43 +47,11 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
   const activeFields = playerFields.filter((f) => f.active);
   const labelByKey = Object.fromEntries(docCards.map((c) => [c.key, c.label]));
 
-  const service = createServiceClient();
-  const supabase = service ?? (await createClient());
-
-  const docPaths = teams.flatMap((t) =>
-    t.players.flatMap((p) =>
-      p.documents.map((d) => ({
-        id: d.id,
-        path: d.filePath,
-      }))
-    )
-  );
-
-  const urlByDocId = new Map<string, string | null>();
-  const photoUrlByPlayerId = new Map<string, string | null>();
-  await Promise.all([
-    ...docPaths.map(async ({ id, path }) => {
-      const { data } = await supabase.storage
-        .from("player-docs")
-        .createSignedUrl(path, 3600);
-      urlByDocId.set(id, data?.signedUrl ?? null);
-    }),
-    ...teams.flatMap((t) =>
-      t.players.map(async (p) => {
-        if (!p.photoPath) {
-          photoUrlByPlayerId.set(p.id, null);
-          return;
-        }
-        const { data } = await supabase.storage
-          .from("player-docs")
-          .createSignedUrl(p.photoPath, 3600);
-        photoUrlByPlayerId.set(p.id, data?.signedUrl ?? null);
-      })
-    ),
-  ]);
-
   const totalPlayers = teams.reduce((n, t) => n + t._count.players, 0);
-  const totalDocs = docPaths.length;
+  const totalDocs = teams.reduce(
+    (n, t) => n + t.players.reduce((pn, p) => pn + p.documents.length, 0),
+    0
+  );
 
   const statusRank: Record<string, number> = {
     confirmed: 0,
@@ -127,7 +93,8 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
       jerseyNumber: player.jerseyNumber,
       position: player.position,
       identityNumber: player.identityNumber,
-      photoUrl: photoUrlByPlayerId.get(player.id) ?? null,
+      hasPhoto: Boolean(player.photoPath),
+      photoUrl: null,
       extraData:
         player.extraData &&
         typeof player.extraData === "object" &&
@@ -138,7 +105,6 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
         id: doc.id,
         docType: doc.docType,
         label: labelByKey[doc.docType] ?? doc.docType,
-        url: urlByDocId.get(doc.id) ?? null,
       })),
     })),
   }));

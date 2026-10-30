@@ -12,8 +12,6 @@ import { ensureDefaultDocCards } from "@/lib/doc-cards";
 import { ensureDefaultPlayerFields } from "@/lib/player-fields";
 import { prisma } from "@/lib/prisma";
 import { isRosterLocked } from "@/lib/roster-lock";
-import { createServiceClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 
 export default async function PemainPage({
   searchParams,
@@ -84,33 +82,9 @@ export default async function PemainPage({
       ? `${requiredCount} kartu wajib`
       : `minimal ${team.tournament.minPlayerDocuments} berkas`;
 
-  const service = createServiceClient();
-  const supabase = service ?? (await createClient());
-  const photoUrlByPlayerId = new Map<string, string | null>();
-  const urlByDocId = new Map<string, string | null>();
   const labelByKey = Object.fromEntries(
     activeCards.map((c) => [c.key, c.label])
   );
-  await Promise.all([
-    ...team.players.map(async (p) => {
-      if (!p.photoPath) {
-        photoUrlByPlayerId.set(p.id, null);
-        return;
-      }
-      const { data } = await supabase.storage
-        .from("player-docs")
-        .createSignedUrl(p.photoPath, 3600);
-      photoUrlByPlayerId.set(p.id, data?.signedUrl ?? null);
-    }),
-    ...team.players.flatMap((p) =>
-      p.documents.map(async (d) => {
-        const { data } = await supabase.storage
-          .from("player-docs")
-          .createSignedUrl(d.filePath, 3600);
-        urlByDocId.set(d.id, data?.signedUrl ?? null);
-      })
-    ),
-  ]);
 
   const rosterPlayers = team.players.map((p) => ({
     id: p.id,
@@ -118,7 +92,8 @@ export default async function PemainPage({
     identityNumber: p.identityNumber,
     jerseyNumber: p.jerseyNumber,
     position: p.position,
-    photoUrl: photoUrlByPlayerId.get(p.id) ?? null,
+    hasPhoto: Boolean(p.photoPath),
+    photoUrl: null as string | null,
     extraData:
       p.extraData &&
       typeof p.extraData === "object" &&
@@ -129,7 +104,6 @@ export default async function PemainPage({
       id: d.id,
       docType: d.docType,
       label: labelByKey[d.docType] ?? d.docType,
-      url: urlByDocId.get(d.id) ?? null,
     })),
   }));
 

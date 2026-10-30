@@ -18,8 +18,13 @@ type SiteHeaderProps = {
    * sembunyikan Bagan / Tim / Dashboard (menu digabung di panel).
    */
   compactNav?: boolean;
-  /** Konten sticky di bawah header (nav section + judul). */
+  /** Konten sticky di bawah header (nav section). */
   below?: ReactNode;
+  /**
+   * Judul halaman. Di desktop ikut sticky bersama header.
+   * Di mobile ikut scroll, supaya tidak memakan tinggi layar.
+   */
+  scrollOnMobile?: ReactNode;
 };
 
 function homeHref(profile?: Profile | null) {
@@ -33,6 +38,7 @@ export function SiteHeader({
   showBagan = false,
   compactNav = false,
   below,
+  scrollOnMobile,
 }: SiteHeaderProps) {
   const [open, setOpen] = useState(false);
   const baganVisible = !!profile && !compactNav && showBagan;
@@ -62,7 +68,8 @@ export function SiteHeader({
 
   return (
     <div className="site-header-stack">
-      <header className="site-header">
+      <div className="site-sticky-top">
+        <header className="site-header">
         <div className="content-frame site-header-inner">
           <Link
             href={homeHref(profile)}
@@ -146,6 +153,12 @@ export function SiteHeader({
       {below ? (
         <div className="site-header-below">
           <div className="content-frame">{below}</div>
+        </div>
+      ) : null}
+      </div>
+      {scrollOnMobile ? (
+        <div className="site-header-flow">
+          <div className="content-frame">{scrollOnMobile}</div>
         </div>
       ) : null}
     </div>

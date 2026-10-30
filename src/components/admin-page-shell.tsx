@@ -17,7 +17,8 @@ type AdminPageShellProps = {
 };
 
 /**
- * Shell panel admin: header + nav/judul sticky, konten bisa di-scroll.
+ * Shell panel admin: header + nav sticky.
+ * Judul halaman sticky di desktop, ikut scroll di mobile.
  */
 export function AdminPageShell({
   profile,
@@ -36,35 +37,35 @@ export function AdminPageShell({
         profile={profile}
         showBagan={showBagan}
         below={
-          <>
-            <AdminSectionNav homeHref={homeHref} homeLabel={homeLabel} />
-            <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0">
-                {eyebrow ? (
-                  <p className="text-sm uppercase tracking-[0.2em] text-[var(--accent)]">
-                    {eyebrow}
-                  </p>
-                ) : null}
-                <h1
-                  className={`font-[family-name:var(--font-display)] text-4xl tracking-wide text-white sm:text-5xl ${
-                    eyebrow ? "mt-1" : ""
-                  }`}
-                >
-                  {title}
-                </h1>
-                {description ? (
-                  <div className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                    {description}
-                  </div>
-                ) : null}
-              </div>
-              {actions ? (
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  {actions}
+          <AdminSectionNav homeHref={homeHref} homeLabel={homeLabel} />
+        }
+        scrollOnMobile={
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              {eyebrow ? (
+                <p className="text-sm uppercase tracking-[0.2em] text-[var(--accent)]">
+                  {eyebrow}
+                </p>
+              ) : null}
+              <h1
+                className={`font-[family-name:var(--font-display)] text-4xl tracking-wide text-white sm:text-5xl ${
+                  eyebrow ? "mt-1" : ""
+                }`}
+              >
+                {title}
+              </h1>
+              {description ? (
+                <div className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+                  {description}
                 </div>
               ) : null}
             </div>
-          </>
+            {actions ? (
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {actions}
+              </div>
+            ) : null}
+          </div>
         }
       />
       <main className="content-frame py-6">{children}</main>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   addPlayer,
@@ -39,6 +40,8 @@ type AddPlayerFormProps = {
   docCards: DocCardDef[];
   minPlayerDocuments: number;
   canAdd: boolean;
+  /** Admin: boleh simpan tanpa berkas wajib */
+  documentsOptional?: boolean;
 };
 
 function emptySlots(count: number): DocSlot[] {
@@ -51,7 +54,9 @@ export function AddPlayerForm({
   docCards,
   minPlayerDocuments,
   canAdd,
+  documentsOptional = false,
 }: AddPlayerFormProps) {
+  const router = useRouter();
   const [formKey, setFormKey] = useState(0);
   const [localError, setLocalError] = useState<string | null>(null);
   const [state, setState] = useState<ActionState>({});
@@ -59,12 +64,14 @@ export function AddPlayerForm({
 
   const requiredCards = docCards.filter((c) => c.required);
   const maxDocs = docCards.length;
-  const neededDocs = Math.min(
-    maxDocs,
-    requiredCards.length > 0
-      ? requiredCards.length
-      : Math.max(1, minPlayerDocuments)
-  );
+  const neededDocs = documentsOptional
+    ? 0
+    : Math.min(
+        maxDocs,
+        requiredCards.length > 0
+          ? requiredCards.length
+          : Math.max(1, minPlayerDocuments)
+      );
 
   const [slots, setSlots] = useState<DocSlot[]>(() => emptySlots(neededDocs));
 
@@ -86,7 +93,7 @@ export function AddPlayerForm({
   const canAddSlot = slots.length < maxDocs;
 
   const canSave =
-    docCards.length === 0
+    documentsOptional || docCards.length === 0
       ? true
       : filledCount >= neededDocs &&
         (requiredCards.length === 0 ||
@@ -94,8 +101,9 @@ export function AddPlayerForm({
             slots.some((s) => s.docType === c.key && s.file)
           ));
 
-  const minHint =
-    requiredCards.length > 0
+  const minHint = documentsOptional
+    ? `Berkas opsional untuk admin. Boleh kosong, atau isi sampai ${maxDocs} kartu.`
+    : requiredCards.length > 0
       ? `Isi ${neededDocs} kartu wajib di bawah: ${requiredCards.map((c) => c.label).join(", ")}. Bisa tambah sampai ${maxDocs} kartu.`
       : `Isi minimal ${neededDocs} kartu dokumen. Bisa tambah sampai ${maxDocs} kartu yang disediakan admin.`;
 
@@ -134,7 +142,7 @@ export function AddPlayerForm({
     setLocalError(null);
     setState({});
 
-    if (docCards.length > 0 && !canSave) {
+    if (!documentsOptional && docCards.length > 0 && !canSave) {
       setLocalError(
         `Lengkapi minimal ${neededDocs} berkas sebelum menyimpan pemain.`
       );
@@ -153,12 +161,13 @@ export function AddPlayerForm({
 
     startTransition(async () => {
       const result =
-        docCards.length > 0
+        filled.length > 0
           ? await addPlayerWithDocuments({}, fd)
           : await addPlayer({}, fd);
       setState(result);
       if (result.success) {
         setFormKey((k) => k + 1);
+        router.refresh();
       }
     });
   }
@@ -229,8 +238,9 @@ export function AddPlayerForm({
             {minHint}
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            Progress: {filledCount} / {neededDocs} minimal · {slots.length} /{" "}
-            {maxDocs} slot
+            {documentsOptional
+              ? `Terisi: ${filledCount} · slot ${slots.length} / ${maxDocs}`
+              : `Progress: ${filledCount} / ${neededDocs} minimal · ${slots.length} / ${maxDocs} slot`}
           </p>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -316,10 +326,16 @@ export function AddPlayerForm({
             })}
           </div>
 
-          {canAddSlot && (
+          {(canAddSlot || (documentsOptional && slots.length === 0 && maxDocs > 0)) && (
             <button
               type="button"
-              onClick={addDocSlot}
+              onClick={() => {
+                if (slots.length === 0 && documentsOptional) {
+                  setSlots(emptySlots(1));
+                  return;
+                }
+                addDocSlot();
+              }}
               className="btn-ghost mt-3 border border-white/15"
             >
               Tambah dokumen
@@ -352,7 +368,7 @@ export function AddPlayerForm({
         >
           {isPending ? "Menyimpan…" : "Simpan pemain"}
         </button>
-        {!canSave && docCards.length > 0 && (
+        {!canSave && docCards.length > 0 && !documentsOptional && (
           <span className="text-center text-xs text-[var(--muted)]">
             Tombol aktif setelah {neededDocs} berkas diisi (
             {filledCount}/{neededDocs})

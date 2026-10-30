@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { getPlayerMediaSignedUrl } from "@/app/actions/player-media";
 import {
   deletePlayerAction,
   savePlayerAndUploadDocument,
@@ -20,6 +22,9 @@ export type RosterPlayer = {
   identityNumber: string | null;
   jerseyNumber: number | null;
   position: string | null;
+  /** true jika ada foto di storage (URL di-fetch on-demand) */
+  hasPhoto?: boolean;
+  /** opsional cache URL; biasanya null agar load halaman cepat */
   photoUrl: string | null;
   extraData: Record<string, string>;
   documents: {
@@ -39,9 +44,12 @@ type PlayersRosterTableProps = {
   locked?: boolean;
 };
 
-type PreviewItem = {
+type PreviewTarget = {
   title: string;
-  url: string;
+  teamId: string;
+  playerId: string;
+  kind: "photo" | "document";
+  documentId?: string;
 };
 
 function previewKind(url: string): "image" | "pdf" | "other" {
@@ -56,14 +64,16 @@ const ZOOM_MAX = 5;
 const ZOOM_STEP = 0.25;
 
 function FilePreviewModal({
-  item,
+  target,
   onClose,
 }: {
-  item: PreviewItem;
+  target: PreviewTarget;
   onClose: () => void;
 }) {
-  const initialKind = previewKind(item.url);
-  const [asPdf, setAsPdf] = useState(initialKind === "pdf");
+  const [url, setUrl] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [asPdf, setAsPdf] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{
@@ -75,10 +85,36 @@ function FilePreviewModal({
   }>({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
 
   useEffect(() => {
-    setAsPdf(previewKind(item.url) === "pdf");
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    setUrl(null);
     setZoom(1);
     setOffset({ x: 0, y: 0 });
-  }, [item.url]);
+    setAsPdf(false);
+
+    void (async () => {
+      const result = await getPlayerMediaSignedUrl({
+        teamId: target.teamId,
+        playerId: target.playerId,
+        kind: target.kind,
+        documentId: target.documentId,
+      });
+      if (cancelled) return;
+      if (result.error || !result.url) {
+        setLoadError(result.error ?? "Gagal memuat berkas.");
+        setLoading(false);
+        return;
+      }
+      setUrl(result.url);
+      setAsPdf(previewKind(result.url) === "pdf");
+      setLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [target]);
 
   function clampZoom(value: number) {
     return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(value * 100) / 100));
@@ -103,7 +139,7 @@ function FilePreviewModal({
         onClose();
         return;
       }
-      if (asPdf) return;
+      if (asPdf || !url) return;
       if (e.key === "+" || e.key === "=") {
         e.preventDefault();
         zoomBy(ZOOM_STEP);
@@ -117,14 +153,14 @@ function FilePreviewModal({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, asPdf]);
+  }, [onClose, asPdf, url]);
 
   return (
     <div
       className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={item.title}
+      aria-label={target.title}
       onClick={onClose}
     >
       <div
@@ -133,10 +169,10 @@ function FilePreviewModal({
       >
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
           <h3 className="min-w-0 truncate font-semibold text-white">
-            {item.title}
+            {target.title}
           </h3>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {!asPdf && (
+            {!asPdf && url && (
               <div className="flex items-center gap-1 rounded-md border border-white/15 bg-black/20 p-0.5">
                 <button
                   type="button"
@@ -166,14 +202,16 @@ function FilePreviewModal({
                 </button>
               </div>
             )}
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-ghost border border-white/15 px-2.5 py-1 text-xs"
-            >
-              Buka tab baru
-            </a>
+            {url && (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-ghost border border-white/15 px-2.5 py-1 text-xs"
+              >
+                Buka tab baru
+              </a>
+            )}
             <button
               type="button"
               className="btn-ghost border border-white/15 px-2.5 py-1 text-xs"
@@ -185,15 +223,19 @@ function FilePreviewModal({
         </div>
         <div
           className={`relative min-h-0 flex-1 overflow-hidden bg-black/40 ${
-            asPdf ? "" : zoom > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
+            asPdf || !url
+              ? ""
+              : zoom > 1
+                ? "cursor-grab active:cursor-grabbing"
+                : "cursor-zoom-in"
           }`}
           onWheel={(e) => {
-            if (asPdf) return;
+            if (asPdf || !url) return;
             e.preventDefault();
             zoomBy(e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP);
           }}
           onPointerDown={(e) => {
-            if (asPdf || zoom <= 1) return;
+            if (asPdf || !url || zoom <= 1) return;
             e.currentTarget.setPointerCapture(e.pointerId);
             dragRef.current = {
               active: true,
@@ -218,23 +260,31 @@ function FilePreviewModal({
             dragRef.current.active = false;
           }}
           onDoubleClick={() => {
-            if (asPdf) return;
+            if (asPdf || !url) return;
             if (zoom > 1) resetZoom();
             else zoomBy(1);
           }}
         >
-          {asPdf ? (
+          {loading ? (
+            <div className="flex h-[40vh] items-center justify-center text-sm text-[var(--muted)]">
+              Memuat preview…
+            </div>
+          ) : loadError ? (
+            <div className="flex h-[40vh] items-center justify-center px-4 text-sm text-red-300">
+              {loadError}
+            </div>
+          ) : asPdf && url ? (
             <iframe
-              title={item.title}
-              src={item.url}
+              title={target.title}
+              src={url}
               className="h-[75vh] w-full rounded-md border border-white/10 bg-white"
             />
-          ) : (
+          ) : url ? (
             <div className="flex h-[75vh] items-center justify-center p-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={item.url}
-                alt={item.title}
+                src={url}
+                alt={target.title}
                 draggable={false}
                 className="max-h-full max-w-full select-none rounded-md object-contain transition-transform duration-150"
                 style={{
@@ -244,9 +294,9 @@ function FilePreviewModal({
                 onError={() => setAsPdf(true)}
               />
             </div>
-          )}
+          ) : null}
         </div>
-        {!asPdf && (
+        {!asPdf && url && (
           <p className="border-t border-white/10 px-4 py-2 text-center text-[11px] text-[var(--muted)]">
             Scroll / tombol +− untuk zoom · seret saat diperbesar · dobel-klik
             untuk reset
@@ -254,6 +304,75 @@ function FilePreviewModal({
         )}
       </div>
     </div>
+  );
+}
+
+function LazyPlayerPhoto({
+  teamId,
+  playerId,
+  fullName,
+  hasPhoto,
+  cachedUrl,
+  onPreview,
+}: {
+  teamId: string;
+  playerId: string;
+  fullName: string;
+  hasPhoto: boolean;
+  cachedUrl: string | null;
+  onPreview: () => void;
+}) {
+  const [url, setUrl] = useState<string | null>(cachedUrl);
+  const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (!hasPhoto || url) return;
+    let cancelled = false;
+    setPending(true);
+    void getPlayerMediaSignedUrl({
+      teamId,
+      playerId,
+      kind: "photo",
+    }).then((result) => {
+      if (cancelled) return;
+      setPending(false);
+      if (result.url) setUrl(result.url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasPhoto, url, teamId, playerId]);
+
+  if (!hasPhoto) {
+    return (
+      <span className="inline-flex size-10 items-center justify-center rounded-md border border-white/10 text-[10px] text-[var(--muted)]">
+        —
+      </span>
+    );
+  }
+
+  if (!url) {
+    return (
+      <span className="inline-flex size-10 items-center justify-center rounded-md border border-white/10 text-[10px] text-[var(--muted)]">
+        {pending ? "…" : "Foto"}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="rounded-md ring-[var(--accent)]/0 transition hover:ring-2 hover:ring-[var(--accent)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+      title="Preview foto"
+      onClick={onPreview}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={fullName}
+        className="size-10 rounded-md object-cover"
+      />
+    </button>
   );
 }
 
@@ -285,14 +404,17 @@ function EditPlayerForm({
   fields: PlayerFieldDef[];
   onDone: () => void;
 }) {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState(
     updatePlayer,
     {} as ActionState
   );
 
   useEffect(() => {
-    if (state.success) onDone();
-  }, [state.success, onDone]);
+    if (!state.success) return;
+    onDone();
+    router.refresh();
+  }, [state.success, onDone, router]);
 
   return (
     <form action={formAction} className="mt-3 space-y-3 rounded-lg border border-white/10 bg-black/20 p-3">
@@ -331,16 +453,8 @@ function EditPlayerForm({
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-[var(--muted)]">
             Foto pemain (opsional)
-            {player.photoUrl ? " — ganti jika perlu" : ""}
+            {player.hasPhoto || player.photoUrl ? " — ganti jika perlu" : ""}
           </span>
-          {player.photoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={player.photoUrl}
-              alt={player.fullName}
-              className="mb-1 size-14 rounded-md object-cover"
-            />
-          )}
           <input
             name="photo"
             type="file"
@@ -383,6 +497,7 @@ function AddDocSlot({
   remaining: DocCardDef[];
   onUploaded: (docType: string) => void;
 }) {
+  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [slotKey, setSlotKey] = useState(0);
   const [state, formAction, pending] = useActionState(
@@ -395,7 +510,8 @@ function AddDocSlot({
     onUploaded(state.docType);
     setSlotKey((k) => k + 1);
     if (fileRef.current) fileRef.current.value = "";
-  }, [state, onUploaded]);
+    router.refresh();
+  }, [state, onUploaded, router]);
 
   if (remaining.length === 0) return null;
 
@@ -453,10 +569,15 @@ function DeleteButton({
   teamId: string;
   playerId: string;
 }) {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState(
     deletePlayerAction,
     {} as ActionState
   );
+
+  useEffect(() => {
+    if (state.success) router.refresh();
+  }, [state.success, router]);
 
   return (
     <form action={formAction} className="inline">
@@ -491,7 +612,7 @@ export function PlayersRosterTable({
 }: PlayersRosterTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [addingDocId, setAddingDocId] = useState<string | null>(null);
-  const [preview, setPreview] = useState<PreviewItem | null>(null);
+  const [preview, setPreview] = useState<PreviewTarget | null>(null);
   const labelByKey = Object.fromEntries(docCards.map((c) => [c.key, c.label]));
 
   if (players.length === 0) {
@@ -505,7 +626,10 @@ export function PlayersRosterTable({
   return (
     <div className="overflow-x-auto">
       {preview && (
-        <FilePreviewModal item={preview} onClose={() => setPreview(null)} />
+        <FilePreviewModal
+          target={preview}
+          onClose={() => setPreview(null)}
+        />
       )}
       <table className="w-full min-w-[28rem] border-collapse text-sm sm:min-w-[40rem]">
         <thead>
@@ -551,30 +675,21 @@ export function PlayersRosterTable({
               <tr key={player.id} className="border-b border-white/5 align-top">
                 <td className="px-4 py-3 text-[var(--muted)]">{i + 1}</td>
                 <td className="px-4 py-3">
-                  {player.photoUrl ? (
-                    <button
-                      type="button"
-                      className="rounded-md ring-[var(--accent)]/0 transition hover:ring-2 hover:ring-[var(--accent)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
-                      title="Preview foto"
-                      onClick={() =>
-                        setPreview({
-                          title: `Foto — ${player.fullName}`,
-                          url: player.photoUrl!,
-                        })
-                      }
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={player.photoUrl}
-                        alt={player.fullName}
-                        className="size-10 rounded-md object-cover"
-                      />
-                    </button>
-                  ) : (
-                    <span className="inline-flex size-10 items-center justify-center rounded-md border border-white/10 text-[10px] text-[var(--muted)]">
-                      —
-                    </span>
-                  )}
+                  <LazyPlayerPhoto
+                    teamId={teamId}
+                    playerId={player.id}
+                    fullName={player.fullName}
+                    hasPhoto={Boolean(player.hasPhoto || player.photoUrl)}
+                    cachedUrl={player.photoUrl}
+                    onPreview={() =>
+                      setPreview({
+                        title: `Foto — ${player.fullName}`,
+                        teamId,
+                        playerId: player.id,
+                        kind: "photo",
+                      })
+                    }
+                  />
                 </td>
                 <td className="px-4 py-3 font-medium text-white">
                   {player.fullName}
@@ -608,17 +723,6 @@ export function PlayersRosterTable({
                       {player.documents.map((d) => {
                         const label =
                           d.label ?? labelByKey[d.docType] ?? d.docType;
-                        if (!d.url) {
-                          return (
-                            <li
-                              key={d.id}
-                              className="rounded border border-white/15 px-2 py-0.5 text-xs text-[var(--muted)]"
-                              title="Berkas tidak bisa dibuka"
-                            >
-                              {label}
-                            </li>
-                          );
-                        }
                         return (
                           <li key={d.id}>
                             <button
@@ -628,7 +732,10 @@ export function PlayersRosterTable({
                               onClick={() =>
                                 setPreview({
                                   title: `${label} — ${player.fullName}`,
-                                  url: d.url!,
+                                  teamId,
+                                  playerId: player.id,
+                                  kind: "document",
+                                  documentId: d.id,
                                 })
                               }
                             >

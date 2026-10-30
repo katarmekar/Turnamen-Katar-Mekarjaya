@@ -206,6 +206,38 @@ select.input option:hover {
   z-index: 50;
 }
 
+.site-header-flow {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(14, 21, 40, 0.98);
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+@media (max-width: 639px) {
+  /* Wrapper hilang supaya judul di luar kotak sticky dan ikut scroll. */
+  .site-header-stack:has(.site-header-flow) {
+    display: contents;
+  }
+
+  .site-header-stack:has(.site-header-flow) .site-sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(14, 21, 40, 0.98);
+  }
+
+  .site-header-stack:has(.site-header-flow) .site-header-below {
+    padding-bottom: 0;
+  }
+}
+
+@media (min-width: 640px) {
+  .site-header-stack:has(.site-header-flow) .site-header-below {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+}
+
 .site-header {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(14, 21, 40, 0.96);

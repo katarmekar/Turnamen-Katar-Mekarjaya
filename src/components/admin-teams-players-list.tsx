@@ -135,6 +135,7 @@ export function AdminTeamsPlayersList({
                       docCards={docCards}
                       minPlayerDocuments={minPlayerDocuments}
                       canAdd={canAdd}
+                      documentsOptional
                     />
                   </div>
                 </div>
