@@ -13,6 +13,8 @@ import { ensureDefaultPlayerFields } from "@/lib/player-fields";
 import { prisma } from "@/lib/prisma";
 import { isRosterLocked } from "@/lib/roster-lock";
 
+export const maxDuration = 60;
+
 export default async function PemainPage({
   searchParams,
 }: {

@@ -96,6 +96,10 @@ function revalidatePlayerPaths(isAdmin: boolean) {
   }
 }
 
+function shouldSkipRevalidate(formData: FormData) {
+  return String(formData.get("skip_revalidate") ?? "") === "1";
+}
+
 function parsePlayerFromForm(
   formData: FormData,
   fields: {
@@ -258,7 +262,9 @@ export async function addPlayer(
     });
   }
 
-  revalidatePlayerPaths(isAdmin);
+  if (!shouldSkipRevalidate(formData)) {
+    revalidatePlayerPaths(isAdmin);
+  }
   return {
     success: "Pemain disimpan. Lanjut upload berkas.",
     playerId: player.id,
@@ -422,7 +428,9 @@ export async function uploadPlayerDocument(
     team.tournament.minPlayerDocuments
   );
 
-  revalidatePlayerPaths(isAdmin);
+  if (!shouldSkipRevalidate(formData)) {
+    revalidatePlayerPaths(isAdmin);
+  }
   return {
     playerId,
     docType,
@@ -432,6 +440,16 @@ export async function uploadPlayerDocument(
         ? `Berkas tersimpan. Masih kurang: ${check.missingLabels.join(", ")}.`
         : `Berkas tersimpan. Masih kurang — minimal ${check.needed} jenis dokumen.`,
   };
+}
+
+/** Panggil di akhir upload berurutan dari client. */
+export async function revalidatePlayerList(
+  teamId: string
+): Promise<ActionState> {
+  const access = await getTeamForMutation(teamId);
+  if (!access.ok) return { error: access.error };
+  revalidatePlayerPaths(access.isAdmin);
+  return { success: "Daftar diperbarui." };
 }
 
 /** Simpan pemain (jika belum) lalu upload berkas dalam satu aksi. */

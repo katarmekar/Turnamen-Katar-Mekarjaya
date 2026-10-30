@@ -6,6 +6,8 @@ import { ensureDefaultDocCards } from "@/lib/doc-cards";
 import { ensureDefaultPlayerFields } from "@/lib/player-fields";
 import { prisma } from "@/lib/prisma";
 
+export const maxDuration = 60;
+
 type PageProps = {
   searchParams: Promise<{ teamId?: string }>;
 };

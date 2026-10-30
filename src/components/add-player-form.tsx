@@ -1,12 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   addPlayer,
-  addPlayerWithDocuments,
+  revalidatePlayerList,
+  uploadPlayerDocument,
   type ActionState,
 } from "@/app/actions/players";
+import { compressUploadFile } from "@/lib/compress-image";
 import {
   inputTypeForPlayerField,
   isBuiltinPlayerFieldKey,
@@ -56,9 +57,9 @@ export function AddPlayerForm({
   canAdd,
   documentsOptional = false,
 }: AddPlayerFormProps) {
-  const router = useRouter();
   const [formKey, setFormKey] = useState(0);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
   const [state, setState] = useState<ActionState>({});
   const [isPending, startTransition] = useTransition();
 
@@ -140,6 +141,7 @@ export function AddPlayerForm({
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLocalError(null);
+    setProgress(null);
     setState({});
 
     if (!documentsOptional && docCards.length > 0 && !canSave) {
@@ -151,23 +153,86 @@ export function AddPlayerForm({
 
     const filled = slots.filter((s) => s.docType && s.file);
     const form = e.currentTarget;
-    const fd = new FormData(form);
-    fd.set("team_id", teamId);
-    fd.set("doc_count", String(filled.length));
-    filled.forEach((slot, i) => {
-      fd.set(`doc_type_${i}`, slot.docType);
-      fd.set(`file_${i}`, slot.file!, slot.file!.name);
-    });
+    const baseFd = new FormData(form);
+    baseFd.set("team_id", teamId);
+    baseFd.set("skip_revalidate", "1");
 
     startTransition(async () => {
-      const result =
-        filled.length > 0
-          ? await addPlayerWithDocuments({}, fd)
-          : await addPlayer({}, fd);
-      setState(result);
-      if (result.success) {
+      try {
+        setProgress("Mengompres gambar…");
+        const photoRaw = baseFd.get("photo");
+        if (photoRaw instanceof File && photoRaw.size > 0) {
+          const compressed = await compressUploadFile(photoRaw);
+          baseFd.set("photo", compressed, compressed.name);
+        }
+
+        const compressedDocs: { docType: string; file: File }[] = [];
+        for (let i = 0; i < filled.length; i++) {
+          const slot = filled[i]!;
+          setProgress(`Mengompres berkas ${i + 1}/${filled.length}…`);
+          compressedDocs.push({
+            docType: slot.docType,
+            file: await compressUploadFile(slot.file!),
+          });
+        }
+
+        setProgress("Menyimpan data pemain…");
+        const created = await addPlayer({}, baseFd);
+        if (created.error || !created.playerId) {
+          setState(created);
+          setProgress(null);
+          return;
+        }
+
+        const playerId = created.playerId;
+        const failedDocs: string[] = [];
+
+        for (let i = 0; i < compressedDocs.length; i++) {
+          const doc = compressedDocs[i]!;
+          setProgress(
+            `Mengunggah berkas ${i + 1}/${compressedDocs.length}…`
+          );
+          const docFd = new FormData();
+          docFd.set("team_id", teamId);
+          docFd.set("player_id", playerId);
+          docFd.set("doc_type", doc.docType);
+          docFd.set("file", doc.file, doc.file.name);
+          docFd.set("skip_revalidate", "1");
+          const uploaded = await uploadPlayerDocument({}, docFd);
+          if (uploaded.error) {
+            failedDocs.push(doc.docType);
+          }
+        }
+
+        setProgress("Memperbarui daftar…");
+        await revalidatePlayerList(teamId);
+        setProgress(null);
+
+        if (failedDocs.length > 0) {
+          setState({
+            playerId,
+            error: `Pemain tersimpan, tetapi berkas gagal: ${failedDocs.join(", ")}. Lanjut upload dari daftar pemain.`,
+          });
+          setFormKey((k) => k + 1);
+          return;
+        }
+
+        setState({
+          playerId,
+          success:
+            compressedDocs.length > 0
+              ? `Pemain dan ${compressedDocs.length} berkas berhasil disimpan.`
+              : "Pemain berhasil disimpan.",
+        });
         setFormKey((k) => k + 1);
-        router.refresh();
+      } catch (err) {
+        setProgress(null);
+        setState({
+          error:
+            err instanceof Error
+              ? err.message
+              : "Gagal menyimpan. Coba lagi dengan foto/berkas lebih kecil.",
+        });
       }
     });
   }
@@ -226,7 +291,8 @@ export function AddPlayerForm({
             className="input"
           />
           <span className="text-xs text-[var(--muted)]">
-            Format gambar, maksimal 5 MB. Boleh dikosongkan.
+            Format gambar. Foto dari HP akan dikompres otomatis sebelum
+            diunggah. Boleh dikosongkan.
           </span>
         </label>
       </div>
@@ -354,6 +420,11 @@ export function AddPlayerForm({
           {state.success}
         </p>
       )}
+      {progress && (
+        <p className="rounded-md border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-center text-sm text-sky-200">
+          {progress}
+        </p>
+      )}
 
       <div className="flex flex-col items-center gap-2">
         <button
@@ -366,7 +437,7 @@ export function AddPlayerForm({
               : undefined
           }
         >
-          {isPending ? "Menyimpan…" : "Simpan pemain"}
+          {isPending ? progress ?? "Menyimpan…" : "Simpan pemain"}
         </button>
         {!canSave && docCards.length > 0 && !documentsOptional && (
           <span className="text-center text-xs text-[var(--muted)]">

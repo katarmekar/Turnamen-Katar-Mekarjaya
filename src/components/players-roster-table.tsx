@@ -1,20 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { getPlayerMediaSignedUrl } from "@/app/actions/player-media";
 import {
   deletePlayerAction,
-  savePlayerAndUploadDocument,
   updatePlayer,
+  uploadPlayerDocument,
   type ActionState,
 } from "@/app/actions/players";
+import type { DocCardDef, PlayerFieldDef } from "@/components/add-player-form";
+import { compressUploadFile } from "@/lib/compress-image";
 import { playerDocsSatisfied } from "@/lib/doc-cards";
 import {
   inputTypeForPlayerField,
   isBuiltinPlayerFieldKey,
 } from "@/lib/player-fields";
-import type { DocCardDef, PlayerFieldDef } from "@/components/add-player-form";
 
 export type RosterPlayer = {
   id: string;
@@ -404,17 +404,14 @@ function EditPlayerForm({
   fields: PlayerFieldDef[];
   onDone: () => void;
 }) {
-  const router = useRouter();
   const [state, formAction, pending] = useActionState(
     updatePlayer,
     {} as ActionState
   );
 
   useEffect(() => {
-    if (!state.success) return;
-    onDone();
-    router.refresh();
-  }, [state.success, onDone, router]);
+    if (state.success) onDone();
+  }, [state.success, onDone]);
 
   return (
     <form action={formAction} className="mt-3 space-y-3 rounded-lg border border-white/10 bg-black/20 p-3">
@@ -497,32 +494,42 @@ function AddDocSlot({
   remaining: DocCardDef[];
   onUploaded: (docType: string) => void;
 }) {
-  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [slotKey, setSlotKey] = useState(0);
-  const [state, formAction, pending] = useActionState(
-    savePlayerAndUploadDocument,
-    {} as ActionState
-  );
-
-  useEffect(() => {
-    if (!state.success || !state.docType) return;
-    onUploaded(state.docType);
-    setSlotKey((k) => k + 1);
-    if (fileRef.current) fileRef.current.value = "";
-    router.refresh();
-  }, [state, onUploaded, router]);
+  const [state, setState] = useState<ActionState>({});
+  const [pending, startTransition] = useTransition();
 
   if (remaining.length === 0) return null;
 
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const raw = fd.get("file");
+    startTransition(async () => {
+      setState({});
+      if (raw instanceof File && raw.size > 0) {
+        const compressed = await compressUploadFile(raw);
+        fd.set("file", compressed, compressed.name);
+      }
+      fd.set("team_id", teamId);
+      fd.set("player_id", playerId);
+      const result = await uploadPlayerDocument({}, fd);
+      setState(result);
+      if (result.success && result.docType) {
+        onUploaded(result.docType);
+        setSlotKey((k) => k + 1);
+        if (fileRef.current) fileRef.current.value = "";
+      }
+    });
+  }
+
   return (
     <form
-      action={formAction}
+      onSubmit={onSubmit}
       key={slotKey}
       className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end"
     >
-      <input type="hidden" name="team_id" value={teamId} />
-      <input type="hidden" name="player_id" value={playerId} />
       <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs">
         <span className="text-[var(--muted)]">Tambah berkas</span>
         <select name="doc_type" className="input py-1.5 text-sm" required>
@@ -569,15 +576,10 @@ function DeleteButton({
   teamId: string;
   playerId: string;
 }) {
-  const router = useRouter();
   const [state, formAction, pending] = useActionState(
     deletePlayerAction,
     {} as ActionState
   );
-
-  useEffect(() => {
-    if (state.success) router.refresh();
-  }, [state.success, router]);
 
   return (
     <form action={formAction} className="inline">
