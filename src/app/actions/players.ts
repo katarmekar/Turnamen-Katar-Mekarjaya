@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
+import { getSelectedTournamentId } from "@/lib/admin-tournament";
 import { requireProfile } from "@/lib/auth";
 import { playerDocsSatisfied } from "@/lib/doc-cards";
 import { isBuiltinPlayerFieldKey } from "@/lib/player-fields";
@@ -24,19 +25,75 @@ type ParsedPlayer = {
   extraData: Record<string, string>;
 };
 
-async function getConfirmedTeam(captainId: string, teamId: string) {
-  return prisma.team.findFirst({
-    where: { id: teamId, captainId, status: "confirmed" },
+const teamMutationInclude = {
+  tournament: {
     include: {
-      tournament: {
-        include: {
-          docCards: { orderBy: { sortOrder: "asc" } },
-          playerFields: { orderBy: { sortOrder: "asc" } },
-        },
-      },
-      players: true,
+      docCards: { orderBy: { sortOrder: "asc" as const } },
+      playerFields: { orderBy: { sortOrder: "asc" as const } },
     },
+  },
+  players: true,
+};
+
+type TeamForMutation = Prisma.TeamGetPayload<{
+  include: typeof teamMutationInclude;
+}>;
+
+/**
+ * Manajer: hanya tim confirmed miliknya + kunci jadwal.
+ * Admin: tim mana pun di turnamen terpilih, tanpa kunci jadwal.
+ */
+async function getTeamForMutation(teamId: string): Promise<
+  | { ok: true; team: TeamForMutation; isAdmin: boolean }
+  | { ok: false; error: string }
+> {
+  const profile = await requireProfile();
+
+  if (profile.role === "admin") {
+    const selectedId = await getSelectedTournamentId();
+    if (!selectedId) {
+      return { ok: false, error: "Pilih turnamen dulu di panel admin." };
+    }
+    const team = await prisma.team.findFirst({
+      where: { id: teamId, tournamentId: selectedId },
+      include: teamMutationInclude,
+    });
+    if (!team) {
+      return {
+        ok: false,
+        error: "Tim tidak ditemukan di turnamen terpilih.",
+      };
+    }
+    return { ok: true, team, isAdmin: true };
+  }
+
+  const team = await prisma.team.findFirst({
+    where: { id: teamId, captainId: profile.id, status: "confirmed" },
+    include: teamMutationInclude,
   });
+  if (!team) {
+    return {
+      ok: false,
+      error: "Tim belum dikonfirmasi atau tidak ditemukan.",
+    };
+  }
+  return { ok: true, team, isAdmin: false };
+}
+
+async function assertRosterEditable(
+  team: { tournamentId: string },
+  isAdmin: boolean
+): Promise<string | null> {
+  if (isAdmin) return null;
+  return rosterLockedMessage(team.tournamentId);
+}
+
+function revalidatePlayerPaths(isAdmin: boolean) {
+  revalidatePath("/dashboard/pemain");
+  revalidatePath("/dashboard");
+  if (isAdmin) {
+    revalidatePath("/admin/pemain");
+  }
 }
 
 function parsePlayerFromForm(
@@ -148,19 +205,17 @@ export async function addPlayer(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const profile = await requireProfile();
   const teamId = String(formData.get("team_id") ?? "");
 
   if (!teamId) {
     return { error: "Tim tidak valid." };
   }
 
-  const team = await getConfirmedTeam(profile.id, teamId);
-  if (!team) {
-    return { error: "Tim belum dikonfirmasi atau tidak ditemukan." };
-  }
+  const access = await getTeamForMutation(teamId);
+  if (!access.ok) return { error: access.error };
+  const { team, isAdmin } = access;
 
-  const locked = await rosterLockedMessage(team.tournamentId);
+  const locked = await assertRosterEditable(team, isAdmin);
   if (locked) return { error: locked };
 
   if (team.players.length >= team.tournament.maxPlayersPerTeam) {
@@ -203,8 +258,7 @@ export async function addPlayer(
     });
   }
 
-  revalidatePath("/dashboard/pemain");
-  revalidatePath("/dashboard");
+  revalidatePlayerPaths(isAdmin);
   return {
     success: "Pemain disimpan. Lanjut upload berkas.",
     playerId: player.id,
@@ -215,7 +269,6 @@ export async function updatePlayer(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const profile = await requireProfile();
   const teamId = String(formData.get("team_id") ?? "");
   const playerId = String(formData.get("player_id") ?? "");
 
@@ -223,12 +276,11 @@ export async function updatePlayer(
     return { error: "Data tidak valid." };
   }
 
-  const team = await getConfirmedTeam(profile.id, teamId);
-  if (!team) {
-    return { error: "Tim belum dikonfirmasi atau tidak ditemukan." };
-  }
+  const access = await getTeamForMutation(teamId);
+  if (!access.ok) return { error: access.error };
+  const { team, isAdmin } = access;
 
-  const locked = await rosterLockedMessage(team.tournamentId);
+  const locked = await assertRosterEditable(team, isAdmin);
   if (locked) return { error: locked };
 
   const existing = await prisma.player.findFirst({
@@ -266,8 +318,7 @@ export async function updatePlayer(
     },
   });
 
-  revalidatePath("/dashboard/pemain");
-  revalidatePath("/dashboard");
+  revalidatePlayerPaths(isAdmin);
   return { success: "Data pemain diperbarui.", playerId };
 }
 
@@ -275,7 +326,6 @@ export async function deletePlayerAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const profile = await requireProfile();
   const teamId = String(formData.get("team_id") ?? "");
   const playerId = String(formData.get("player_id") ?? "");
 
@@ -283,40 +333,36 @@ export async function deletePlayerAction(
     return { error: "Data tidak valid." };
   }
 
-  const team = await getConfirmedTeam(profile.id, teamId);
-  if (!team) {
-    return { error: "Tidak diizinkan." };
-  }
+  const access = await getTeamForMutation(teamId);
+  if (!access.ok) return { error: access.error };
 
-  const locked = await rosterLockedMessage(team.tournamentId);
+  const locked = await assertRosterEditable(access.team, access.isAdmin);
   if (locked) return { error: locked };
 
   await prisma.player.deleteMany({
     where: { id: playerId, teamId },
   });
-  revalidatePath("/dashboard/pemain");
+  revalidatePlayerPaths(access.isAdmin);
   return { success: "Pemain dihapus." };
 }
 
 export async function deletePlayer(playerId: string, teamId: string) {
-  const profile = await requireProfile();
-  const team = await getConfirmedTeam(profile.id, teamId);
-  if (!team) throw new Error("Tidak diizinkan");
+  const access = await getTeamForMutation(teamId);
+  if (!access.ok) throw new Error(access.error);
 
-  const locked = await rosterLockedMessage(team.tournamentId);
+  const locked = await assertRosterEditable(access.team, access.isAdmin);
   if (locked) throw new Error(locked);
 
   await prisma.player.deleteMany({
     where: { id: playerId, teamId },
   });
-  revalidatePath("/dashboard/pemain");
+  revalidatePlayerPaths(access.isAdmin);
 }
 
 export async function uploadPlayerDocument(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const profile = await requireProfile();
   const teamId = String(formData.get("team_id") ?? "");
   const playerId = String(formData.get("player_id") ?? "");
   const docType = String(formData.get("doc_type") ?? "").trim();
@@ -329,10 +375,11 @@ export async function uploadPlayerDocument(
     return { error: "Pemain belum disimpan." };
   }
 
-  const team = await getConfirmedTeam(profile.id, teamId);
-  if (!team) return { error: "Tim belum dikonfirmasi." };
+  const access = await getTeamForMutation(teamId);
+  if (!access.ok) return { error: access.error };
+  const { team, isAdmin } = access;
 
-  const locked = await rosterLockedMessage(team.tournamentId);
+  const locked = await assertRosterEditable(team, isAdmin);
   if (locked) return { error: locked };
 
   const allowed = team.tournament.docCards.filter((c) => c.active);
@@ -375,7 +422,7 @@ export async function uploadPlayerDocument(
     team.tournament.minPlayerDocuments
   );
 
-  revalidatePath("/dashboard/pemain");
+  revalidatePlayerPaths(isAdmin);
   return {
     playerId,
     docType,
@@ -423,16 +470,14 @@ export async function addPlayerWithDocuments(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const profile = await requireProfile();
   const teamId = String(formData.get("team_id") ?? "");
   if (!teamId) return { error: "Tim tidak valid." };
 
-  const team = await getConfirmedTeam(profile.id, teamId);
-  if (!team) {
-    return { error: "Tim belum dikonfirmasi atau tidak ditemukan." };
-  }
+  const access = await getTeamForMutation(teamId);
+  if (!access.ok) return { error: access.error };
+  const { team, isAdmin } = access;
 
-  const locked = await rosterLockedMessage(team.tournamentId);
+  const locked = await assertRosterEditable(team, isAdmin);
   if (locked) return { error: locked };
 
   if (team.players.length >= team.tournament.maxPlayersPerTeam) {
@@ -533,8 +578,7 @@ export async function addPlayerWithDocuments(
     });
   }
 
-  revalidatePath("/dashboard/pemain");
-  revalidatePath("/dashboard");
+  revalidatePlayerPaths(isAdmin);
   return {
     playerId: player.id,
     success: `Pemain ${parsed.data.fullName} dan ${docs.length} berkas berhasil disimpan.`,

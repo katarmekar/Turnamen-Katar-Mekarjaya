@@ -87,8 +87,12 @@ export default async function PemainPage({
   const service = createServiceClient();
   const supabase = service ?? (await createClient());
   const photoUrlByPlayerId = new Map<string, string | null>();
-  await Promise.all(
-    team.players.map(async (p) => {
+  const urlByDocId = new Map<string, string | null>();
+  const labelByKey = Object.fromEntries(
+    activeCards.map((c) => [c.key, c.label])
+  );
+  await Promise.all([
+    ...team.players.map(async (p) => {
       if (!p.photoPath) {
         photoUrlByPlayerId.set(p.id, null);
         return;
@@ -97,8 +101,16 @@ export default async function PemainPage({
         .from("player-docs")
         .createSignedUrl(p.photoPath, 3600);
       photoUrlByPlayerId.set(p.id, data?.signedUrl ?? null);
-    })
-  );
+    }),
+    ...team.players.flatMap((p) =>
+      p.documents.map(async (d) => {
+        const { data } = await supabase.storage
+          .from("player-docs")
+          .createSignedUrl(d.filePath, 3600);
+        urlByDocId.set(d.id, data?.signedUrl ?? null);
+      })
+    ),
+  ]);
 
   const rosterPlayers = team.players.map((p) => ({
     id: p.id,
@@ -113,7 +125,12 @@ export default async function PemainPage({
       !Array.isArray(p.extraData)
         ? (p.extraData as Record<string, string>)
         : {},
-    documents: p.documents.map((d) => ({ id: d.id, docType: d.docType })),
+    documents: p.documents.map((d) => ({
+      id: d.id,
+      docType: d.docType,
+      label: labelByKey[d.docType] ?? d.docType,
+      url: urlByDocId.get(d.id) ?? null,
+    })),
   }));
 
   const rosterLocked = await isRosterLocked(team.tournamentId);

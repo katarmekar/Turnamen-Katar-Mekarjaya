@@ -1,10 +1,9 @@
 import { AdminPageShell } from "@/components/admin-page-shell";
-import {
-  AdminTeamsPlayersList,
-  type AdminTeamPlayersView,
-} from "@/components/admin-teams-players-list";
+import { AdminTeamsPlayersList } from "@/components/admin-teams-players-list";
 import { requireSelectedTournament } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
+import { ensureDefaultDocCards } from "@/lib/doc-cards";
+import { ensureDefaultPlayerFields } from "@/lib/player-fields";
 import { prisma } from "@/lib/prisma";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -19,7 +18,12 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const focusTeamId = params.teamId?.trim() || null;
 
-  const [teams, docCards] = await Promise.all([
+  await Promise.all([
+    ensureDefaultDocCards(tournament.id),
+    ensureDefaultPlayerFields(tournament.id),
+  ]);
+
+  const [teams, docCards, playerFields] = await Promise.all([
     prisma.team.findMany({
       where: { tournamentId: tournament.id },
       include: {
@@ -35,8 +39,14 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
       where: { tournamentId: tournament.id },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     }),
+    prisma.tournamentPlayerField.findMany({
+      where: { tournamentId: tournament.id },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    }),
   ]);
 
+  const activeCards = docCards.filter((c) => c.active);
+  const activeFields = playerFields.filter((f) => f.active);
   const labelByKey = Object.fromEntries(docCards.map((c) => [c.key, c.label]));
 
   const service = createServiceClient();
@@ -89,7 +99,24 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
       a.name.localeCompare(b.name, "id")
   );
 
-  const teamViews: AdminTeamPlayersView[] = teams.map((team) => ({
+  const fieldDefs = activeFields.map((f) => ({
+    id: f.id,
+    key: f.key,
+    label: f.label,
+    placeholder: f.placeholder,
+    fieldType: f.fieldType,
+    required: f.required,
+  }));
+
+  const cardDefs = activeCards.map((c) => ({
+    id: c.id,
+    key: c.key,
+    label: c.label,
+    required: c.required,
+    active: true,
+  }));
+
+  const teamViews = teams.map((team) => ({
     id: team.id,
     name: team.name,
     city: team.city,
@@ -101,6 +128,12 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
       position: player.position,
       identityNumber: player.identityNumber,
       photoUrl: photoUrlByPlayerId.get(player.id) ?? null,
+      extraData:
+        player.extraData &&
+        typeof player.extraData === "object" &&
+        !Array.isArray(player.extraData)
+          ? (player.extraData as Record<string, string>)
+          : {},
       documents: player.documents.map((doc) => ({
         id: doc.id,
         docType: doc.docType,
@@ -114,20 +147,24 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
     <AdminPageShell
       profile={profile}
       title="Pemain & berkas"
-      description={`${tournament.name} · ${teams.length} tim · ${totalPlayers} pemain · ${totalDocs} berkas · klik nama tim untuk buka/tutup detail`}
+      description={`${tournament.name} · ${teams.length} tim · ${totalPlayers} pemain · ${totalDocs} berkas · admin dapat kelola data tanpa batasan jadwal`}
     >
-        {teams.length === 0 ? (
-          <div className="panel mt-6 p-6">
-            <p className="text-sm text-[var(--muted)]">
-              Belum ada tim terdaftar di turnamen ini.
-            </p>
-          </div>
-        ) : (
-          <AdminTeamsPlayersList
-            teams={teamViews}
-            initialOpenTeamId={focusTeamId}
-          />
-        )}
+      {teams.length === 0 ? (
+        <div className="panel mt-6 p-6">
+          <p className="text-sm text-[var(--muted)]">
+            Belum ada tim terdaftar di turnamen ini.
+          </p>
+        </div>
+      ) : (
+        <AdminTeamsPlayersList
+          teams={teamViews}
+          fields={fieldDefs}
+          docCards={cardDefs}
+          minPlayerDocuments={tournament.minPlayerDocuments}
+          maxPlayersPerTeam={tournament.maxPlayersPerTeam}
+          initialOpenTeamId={focusTeamId}
+        />
+      )}
     </AdminPageShell>
   );
 }

@@ -1,41 +1,41 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  AddPlayerForm,
+  type DocCardDef,
+  type PlayerFieldDef,
+} from "@/components/add-player-form";
+import {
+  PlayersRosterTable,
+  type RosterPlayer,
+} from "@/components/players-roster-table";
 import { TEAM_STATUS_LABEL } from "@/lib/format";
-
-export type AdminPlayerDocView = {
-  id: string;
-  docType: string;
-  label: string;
-  url: string | null;
-};
-
-export type AdminPlayerView = {
-  id: string;
-  fullName: string;
-  jerseyNumber: number | null;
-  position: string | null;
-  identityNumber: string | null;
-  photoUrl: string | null;
-  documents: AdminPlayerDocView[];
-};
 
 export type AdminTeamPlayersView = {
   id: string;
   name: string;
   city: string | null;
   status: string;
-  players: AdminPlayerView[];
+  players: RosterPlayer[];
 };
 
 type AdminTeamsPlayersListProps = {
   teams: AdminTeamPlayersView[];
+  fields: PlayerFieldDef[];
+  docCards: DocCardDef[];
+  minPlayerDocuments: number;
+  maxPlayersPerTeam: number;
   /** Tim yang dibuka otomatis (opsional) */
   initialOpenTeamId?: string | null;
 };
 
 export function AdminTeamsPlayersList({
   teams,
+  fields,
+  docCards,
+  minPlayerDocuments,
+  maxPlayersPerTeam,
   initialOpenTeamId = null,
 }: AdminTeamsPlayersListProps) {
   const [openIds, setOpenIds] = useState<Set<string>>(() =>
@@ -62,7 +62,11 @@ export function AdminTeamsPlayersList({
 
   return (
     <div className="mt-6 space-y-4">
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-[var(--muted)]">
+          Admin dapat menambah, mengubah, dan menghapus data pemain tanpa
+          batasan jadwal pertandingan.
+        </p>
         <button
           type="button"
           className="btn-ghost border border-white/15 px-3 py-1.5 text-xs"
@@ -75,6 +79,7 @@ export function AdminTeamsPlayersList({
       {teams.map((team) => {
         const open = openIds.has(team.id);
         const panelId = `tim-detail-${team.id}`;
+        const canAdd = team.players.length < maxPlayersPerTeam;
 
         return (
           <section
@@ -97,7 +102,7 @@ export function AdminTeamsPlayersList({
                 <h2 className="font-semibold text-white">{team.name}</h2>
                 <p className="mt-1 text-sm text-[var(--muted)]">
                   {TEAM_STATUS_LABEL[team.status] ?? team.status} ·{" "}
-                  {team.players.length} pemain
+                  {team.players.length} / {maxPlayersPerTeam} pemain
                   {team.city ? ` · ${team.city}` : ""}
                 </p>
               </div>
@@ -108,105 +113,50 @@ export function AdminTeamsPlayersList({
                   </span>
                 )}
                 <span className="rounded border border-white/15 px-2.5 py-1 text-xs text-[var(--muted)]">
-                  {open ? "Sembunyikan ▲" : "Lihat detail ▼"}
+                  {open ? "Sembunyikan ▲" : "Kelola ▼"}
                 </span>
               </div>
             </button>
 
             {open && (
               <div id={panelId} className="border-t border-white/10">
-                {team.players.length === 0 ? (
-                  <p className="px-5 py-6 text-sm text-[var(--muted)]">
-                    Belum ada pemain pada tim ini.
+                <div className="border-b border-white/10 px-5 py-5">
+                  <h3 className="text-sm font-semibold text-white">
+                    Tambah pemain
+                  </h3>
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    Form sama seperti manajer; perubahan admin tidak dikunci
+                    jadwal.
                   </p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[32rem] border-collapse text-sm">
-                      <thead>
-                        <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-[var(--muted)]">
-                          <th className="px-5 py-3 font-medium">No</th>
-                          <th className="px-5 py-3 font-medium">Foto</th>
-                          <th className="px-5 py-3 font-medium">Nama</th>
-                          <th className="px-5 py-3 font-medium">Detail</th>
-                          <th className="px-5 py-3 font-medium">Berkas</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {team.players.map((player, i) => {
-                          const detail = [
-                            player.jerseyNumber != null
-                              ? `#${player.jerseyNumber}`
-                              : null,
-                            player.position,
-                            player.identityNumber,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ");
-
-                          return (
-                            <tr
-                              key={player.id}
-                              className="border-b border-white/5 last:border-0 align-top"
-                            >
-                              <td className="px-5 py-3 text-[var(--muted)]">
-                                {i + 1}
-                              </td>
-                              <td className="px-5 py-3">
-                                {player.photoUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={player.photoUrl}
-                                    alt={player.fullName}
-                                    className="size-10 rounded-md object-cover"
-                                  />
-                                ) : (
-                                  <span className="inline-flex size-10 items-center justify-center rounded-md border border-white/10 text-[10px] text-[var(--muted)]">
-                                    —
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-5 py-3 font-medium text-white">
-                                {player.fullName}
-                              </td>
-                              <td className="px-5 py-3 text-[var(--muted)]">
-                                {detail || "—"}
-                              </td>
-                              <td className="px-5 py-3">
-                                {player.documents.length === 0 ? (
-                                  <span className="text-[var(--muted)]">
-                                    Belum ada berkas
-                                  </span>
-                                ) : (
-                                  <ul className="flex flex-col gap-1.5">
-                                    {player.documents.map((doc) => (
-                                      <li key={doc.id}>
-                                        {doc.url ? (
-                                          <a
-                                            href={doc.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-[var(--accent)] underline-offset-2 hover:underline"
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            {doc.label}
-                                          </a>
-                                        ) : (
-                                          <span className="text-[var(--muted)]">
-                                            {doc.label} (tidak bisa dibuka)
-                                          </span>
-                                        )}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  <div className="mt-4">
+                    <AddPlayerForm
+                      teamId={team.id}
+                      fields={fields}
+                      docCards={docCards}
+                      minPlayerDocuments={minPlayerDocuments}
+                      canAdd={canAdd}
+                    />
                   </div>
-                )}
+                </div>
+
+                <div className="px-1 py-2 sm:px-2">
+                  <div className="border-b border-white/10 px-4 py-3">
+                    <h3 className="text-sm font-semibold text-white">
+                      Daftar pemain
+                    </h3>
+                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      Edit data, tambah berkas, atau hapus pemain.
+                    </p>
+                  </div>
+                  <PlayersRosterTable
+                    teamId={team.id}
+                    players={team.players}
+                    fields={fields}
+                    docCards={docCards}
+                    minPlayerDocuments={minPlayerDocuments}
+                    locked={false}
+                  />
+                </div>
               </div>
             )}
           </section>

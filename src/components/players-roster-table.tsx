@@ -22,7 +22,12 @@ export type RosterPlayer = {
   position: string | null;
   photoUrl: string | null;
   extraData: Record<string, string>;
-  documents: { id: string; docType: string }[];
+  documents: {
+    id: string;
+    docType: string;
+    url?: string | null;
+    label?: string;
+  }[];
 };
 
 type PlayersRosterTableProps = {
@@ -33,6 +38,224 @@ type PlayersRosterTableProps = {
   minPlayerDocuments: number;
   locked?: boolean;
 };
+
+type PreviewItem = {
+  title: string;
+  url: string;
+};
+
+function previewKind(url: string): "image" | "pdf" | "other" {
+  const path = url.split("?")[0]?.toLowerCase() ?? "";
+  if (/\.(jpe?g|png|webp|gif|bmp)$/i.test(path)) return "image";
+  if (/\.pdf$/i.test(path)) return "pdf";
+  return "other";
+}
+
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 5;
+const ZOOM_STEP = 0.25;
+
+function FilePreviewModal({
+  item,
+  onClose,
+}: {
+  item: PreviewItem;
+  onClose: () => void;
+}) {
+  const initialKind = previewKind(item.url);
+  const [asPdf, setAsPdf] = useState(initialKind === "pdf");
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  }>({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
+
+  useEffect(() => {
+    setAsPdf(previewKind(item.url) === "pdf");
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  }, [item.url]);
+
+  function clampZoom(value: number) {
+    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(value * 100) / 100));
+  }
+
+  function zoomBy(delta: number) {
+    setZoom((prev) => {
+      const next = clampZoom(prev + delta);
+      if (next <= ZOOM_MIN) setOffset({ x: 0, y: 0 });
+      return next;
+    });
+  }
+
+  function resetZoom() {
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  }
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (asPdf) return;
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        zoomBy(ZOOM_STEP);
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        zoomBy(-ZOOM_STEP);
+      } else if (e.key === "0") {
+        e.preventDefault();
+        resetZoom();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, asPdf]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={item.title}
+      onClick={onClose}
+    >
+      <div
+        className="panel relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+          <h3 className="min-w-0 truncate font-semibold text-white">
+            {item.title}
+          </h3>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {!asPdf && (
+              <div className="flex items-center gap-1 rounded-md border border-white/15 bg-black/20 p-0.5">
+                <button
+                  type="button"
+                  className="btn-ghost px-2.5 py-1 text-xs disabled:opacity-40"
+                  disabled={zoom <= ZOOM_MIN}
+                  onClick={() => zoomBy(-ZOOM_STEP)}
+                  title="Perkecil (−)"
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost min-w-14 px-2 py-1 text-xs tabular-nums"
+                  onClick={resetZoom}
+                  title="Reset zoom (0)"
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost px-2.5 py-1 text-xs disabled:opacity-40"
+                  disabled={zoom >= ZOOM_MAX}
+                  onClick={() => zoomBy(ZOOM_STEP)}
+                  title="Perbesar (+)"
+                >
+                  +
+                </button>
+              </div>
+            )}
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-ghost border border-white/15 px-2.5 py-1 text-xs"
+            >
+              Buka tab baru
+            </a>
+            <button
+              type="button"
+              className="btn-ghost border border-white/15 px-2.5 py-1 text-xs"
+              onClick={onClose}
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+        <div
+          className={`relative min-h-0 flex-1 overflow-hidden bg-black/40 ${
+            asPdf ? "" : zoom > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
+          }`}
+          onWheel={(e) => {
+            if (asPdf) return;
+            e.preventDefault();
+            zoomBy(e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP);
+          }}
+          onPointerDown={(e) => {
+            if (asPdf || zoom <= 1) return;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            dragRef.current = {
+              active: true,
+              startX: e.clientX,
+              startY: e.clientY,
+              originX: offset.x,
+              originY: offset.y,
+            };
+          }}
+          onPointerMove={(e) => {
+            const drag = dragRef.current;
+            if (!drag.active) return;
+            setOffset({
+              x: drag.originX + (e.clientX - drag.startX),
+              y: drag.originY + (e.clientY - drag.startY),
+            });
+          }}
+          onPointerUp={() => {
+            dragRef.current.active = false;
+          }}
+          onPointerCancel={() => {
+            dragRef.current.active = false;
+          }}
+          onDoubleClick={() => {
+            if (asPdf) return;
+            if (zoom > 1) resetZoom();
+            else zoomBy(1);
+          }}
+        >
+          {asPdf ? (
+            <iframe
+              title={item.title}
+              src={item.url}
+              className="h-[75vh] w-full rounded-md border border-white/10 bg-white"
+            />
+          ) : (
+            <div className="flex h-[75vh] items-center justify-center p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={item.url}
+                alt={item.title}
+                draggable={false}
+                className="max-h-full max-w-full select-none rounded-md object-contain transition-transform duration-150"
+                style={{
+                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                  transformOrigin: "center center",
+                }}
+                onError={() => setAsPdf(true)}
+              />
+            </div>
+          )}
+        </div>
+        {!asPdf && (
+          <p className="border-t border-white/10 px-4 py-2 text-center text-[11px] text-[var(--muted)]">
+            Scroll / tombol +− untuk zoom · seret saat diperbesar · dobel-klik
+            untuk reset
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function fieldValue(player: RosterPlayer, key: string): string {
   if (key === "full_name") return player.fullName;
@@ -268,6 +491,7 @@ export function PlayersRosterTable({
 }: PlayersRosterTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [addingDocId, setAddingDocId] = useState<string | null>(null);
+  const [preview, setPreview] = useState<PreviewItem | null>(null);
   const labelByKey = Object.fromEntries(docCards.map((c) => [c.key, c.label]));
 
   if (players.length === 0) {
@@ -280,6 +504,9 @@ export function PlayersRosterTable({
 
   return (
     <div className="overflow-x-auto">
+      {preview && (
+        <FilePreviewModal item={preview} onClose={() => setPreview(null)} />
+      )}
       <table className="w-full min-w-[28rem] border-collapse text-sm sm:min-w-[40rem]">
         <thead>
           <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-[var(--muted)]">
@@ -325,12 +552,24 @@ export function PlayersRosterTable({
                 <td className="px-4 py-3 text-[var(--muted)]">{i + 1}</td>
                 <td className="px-4 py-3">
                   {player.photoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={player.photoUrl}
-                      alt={player.fullName}
-                      className="size-10 rounded-md object-cover"
-                    />
+                    <button
+                      type="button"
+                      className="rounded-md ring-[var(--accent)]/0 transition hover:ring-2 hover:ring-[var(--accent)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+                      title="Preview foto"
+                      onClick={() =>
+                        setPreview({
+                          title: `Foto — ${player.fullName}`,
+                          url: player.photoUrl!,
+                        })
+                      }
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={player.photoUrl}
+                        alt={player.fullName}
+                        className="size-10 rounded-md object-cover"
+                      />
+                    </button>
                   ) : (
                     <span className="inline-flex size-10 items-center justify-center rounded-md border border-white/10 text-[10px] text-[var(--muted)]">
                       —
@@ -366,14 +605,38 @@ export function PlayersRosterTable({
                     <span className="text-[var(--muted)]">—</span>
                   ) : (
                     <ul className="flex flex-wrap gap-1.5">
-                      {player.documents.map((d) => (
-                        <li
-                          key={d.id}
-                          className="rounded border border-white/15 px-2 py-0.5 text-xs text-white/80"
-                        >
-                          {labelByKey[d.docType] ?? d.docType}
-                        </li>
-                      ))}
+                      {player.documents.map((d) => {
+                        const label =
+                          d.label ?? labelByKey[d.docType] ?? d.docType;
+                        if (!d.url) {
+                          return (
+                            <li
+                              key={d.id}
+                              className="rounded border border-white/15 px-2 py-0.5 text-xs text-[var(--muted)]"
+                              title="Berkas tidak bisa dibuka"
+                            >
+                              {label}
+                            </li>
+                          );
+                        }
+                        return (
+                          <li key={d.id}>
+                            <button
+                              type="button"
+                              className="rounded border border-white/15 px-2 py-0.5 text-xs text-[var(--accent)] underline-offset-2 transition hover:border-[var(--accent)]/50 hover:underline"
+                              title={`Preview ${label}`}
+                              onClick={() =>
+                                setPreview({
+                                  title: `${label} — ${player.fullName}`,
+                                  url: d.url!,
+                                })
+                              }
+                            >
+                              {label}
+                            </button>
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </td>
