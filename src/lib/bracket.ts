@@ -704,6 +704,12 @@ export async function generateBracket(tournamentId: string) {
   };
 }
 
+export type MatchEventInput = {
+  type: "goal" | "yellow_card" | "red_card";
+  teamId: string;
+  playerId: string;
+};
+
 export async function submitMatchResult(params: {
   matchId: string;
   resultType: "score" | "wo" | "dq";
@@ -714,13 +720,20 @@ export async function submitMatchResult(params: {
   forfeitedTeamId?: string | null;
   notes?: string | null;
   adminId: string;
+  /** Admin boleh isi/edit kapan saja (abaikan jadwal belum lewat). */
+  skipScheduleCheck?: boolean;
+  events?: MatchEventInput[];
 }) {
   const match = await prisma.match.findUniqueOrThrow({
     where: { id: params.matchId },
     include: { slotA: true, slotB: true, tournament: true },
   });
 
-  if (match.scheduledAt && match.scheduledAt > new Date()) {
+  if (
+    !params.skipScheduleCheck &&
+    match.scheduledAt &&
+    match.scheduledAt > new Date()
+  ) {
     throw new Error("Jadwal pertandingan belum lewat.");
   }
 
@@ -758,7 +771,30 @@ export async function submitMatchResult(params: {
     );
   }
 
+  const teamIds = validTeams;
+  const events = params.events ?? [];
+  if (events.length > 0) {
+    for (const ev of events) {
+      if (!teamIds.includes(ev.teamId)) {
+        throw new Error("Event harus dari tim di pertandingan ini.");
+      }
+    }
+    const playerIds = [...new Set(events.map((e) => e.playerId))];
+    const players = await prisma.player.findMany({
+      where: { id: { in: playerIds } },
+      select: { id: true, teamId: true },
+    });
+    const byId = new Map(players.map((p) => [p.id, p]));
+    for (const ev of events) {
+      const p = byId.get(ev.playerId);
+      if (!p || p.teamId !== ev.teamId) {
+        throw new Error("Pemain tidak cocok dengan tim yang dipilih.");
+      }
+    }
+  }
+
   let shouldStartKnockout = false;
+  const wasUnset = !match.resultType;
 
   await prisma.$transaction(async (tx) => {
     await tx.match.update({
@@ -773,13 +809,33 @@ export async function submitMatchResult(params: {
       },
     });
 
+    await tx.matchEvent.deleteMany({ where: { matchId: match.id } });
+    if (events.length > 0) {
+      await tx.matchEvent.createMany({
+        data: events.map((ev, i) => ({
+          matchId: match.id,
+          teamId: ev.teamId,
+          playerId: ev.playerId,
+          type: ev.type,
+          sortOrder: i,
+        })),
+      });
+    }
+
     if (match.winnerSlotId && winnerId) {
       await tx.bracketSlot.update({
         where: { id: match.winnerSlotId },
         data: { teamId: winnerId, isBye: false },
       });
+    } else if (match.winnerSlotId && !winnerId) {
+      await tx.bracketSlot.update({
+        where: { id: match.winnerSlotId },
+        data: { teamId: null, isBye: false },
+      });
+    }
 
-      // Jika lawan di babak berikutnya BYE / kosong-BYE, auto-WO lanjut
+    // Auto-WO BYE hanya saat hasil pertama kali diisi
+    if (wasUnset && match.winnerSlotId && winnerId) {
       const nextMatch = await tx.match.findFirst({
         where: {
           tournamentId: match.tournamentId,
@@ -813,7 +869,6 @@ export async function submitMatchResult(params: {
               data: { teamId: winnerId, isBye: false },
             });
           } else {
-            // Final — turnamen selesai
             await tx.tournament.update({
               where: { id: match.tournamentId },
               data: { status: "done" },

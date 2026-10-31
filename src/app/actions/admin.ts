@@ -538,6 +538,41 @@ export async function submitScore(
   const forfeitedTeamId = String(formData.get("forfeited_team_id") ?? "") || null;
   const notes = String(formData.get("notes") ?? "").trim();
 
+  let events: {
+    type: "goal" | "yellow_card" | "red_card";
+    teamId: string;
+    playerId: string;
+  }[] = [];
+  const rawEvents = String(formData.get("events_json") ?? "").trim();
+  if (rawEvents) {
+    try {
+      const parsed = JSON.parse(rawEvents) as unknown;
+      if (!Array.isArray(parsed)) {
+        return { error: "Format event tidak valid." };
+      }
+      events = parsed
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const row = item as Record<string, unknown>;
+          const type = String(row.type ?? "");
+          const teamId = String(row.teamId ?? "");
+          const playerId = String(row.playerId ?? "");
+          if (
+            type !== "goal" &&
+            type !== "yellow_card" &&
+            type !== "red_card"
+          ) {
+            return null;
+          }
+          if (!teamId || !playerId) return null;
+          return { type, teamId, playerId };
+        })
+        .filter((x): x is (typeof events)[number] => Boolean(x));
+    } catch {
+      return { error: "Gagal membaca data gol/kartu." };
+    }
+  }
+
   try {
     await submitMatchResult({
       matchId,
@@ -548,6 +583,8 @@ export async function submitScore(
       forfeitedTeamId,
       notes: notes || null,
       adminId: admin.id,
+      skipScheduleCheck: true,
+      events,
     });
     revalidatePath("/admin/jadwal");
     revalidatePath("/bagan");
