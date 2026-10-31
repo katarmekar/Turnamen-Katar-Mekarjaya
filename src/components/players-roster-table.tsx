@@ -77,6 +77,7 @@ function FilePreviewModal({
   const [loading, setLoading] = useState(true);
   const [asPdf, setAsPdf] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{
     active: boolean;
@@ -92,6 +93,7 @@ function FilePreviewModal({
     setLoadError(null);
     setUrl(null);
     setZoom(1);
+    setRotation(0);
     setOffset({ x: 0, y: 0 });
     setAsPdf(false);
 
@@ -135,6 +137,10 @@ function FilePreviewModal({
     setOffset({ x: 0, y: 0 });
   }
 
+  function rotateBy(degrees: number) {
+    setRotation((prev) => (prev + degrees + 360) % 360);
+  }
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
@@ -151,6 +157,9 @@ function FilePreviewModal({
       } else if (e.key === "0") {
         e.preventDefault();
         resetZoom();
+      } else if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        rotateBy(90);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -175,34 +184,45 @@ function FilePreviewModal({
           </h3>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {!asPdf && url && (
-              <div className="flex items-center gap-1 rounded-md border border-white/15 bg-black/20 p-0.5">
+              <>
+                <div className="flex items-center gap-1 rounded-md border border-white/15 bg-black/20 p-0.5">
+                  <button
+                    type="button"
+                    className="btn-ghost px-2.5 py-1 text-xs disabled:opacity-40"
+                    disabled={zoom <= ZOOM_MIN}
+                    onClick={() => zoomBy(-ZOOM_STEP)}
+                    title="Perkecil (−)"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost min-w-14 px-2 py-1 text-xs tabular-nums"
+                    onClick={resetZoom}
+                    title="Reset zoom (0)"
+                  >
+                    {Math.round(zoom * 100)}%
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost px-2.5 py-1 text-xs disabled:opacity-40"
+                    disabled={zoom >= ZOOM_MAX}
+                    onClick={() => zoomBy(ZOOM_STEP)}
+                    title="Perbesar (+)"
+                  >
+                    +
+                  </button>
+                </div>
                 <button
                   type="button"
-                  className="btn-ghost px-2.5 py-1 text-xs disabled:opacity-40"
-                  disabled={zoom <= ZOOM_MIN}
-                  onClick={() => zoomBy(-ZOOM_STEP)}
-                  title="Perkecil (−)"
+                  className="btn-ghost border border-white/15 px-2.5 py-1 text-xs"
+                  onClick={() => rotateBy(90)}
+                  title="Putar 90° (R)"
+                  aria-label="Putar gambar 90 derajat"
                 >
-                  −
+                  Putar
                 </button>
-                <button
-                  type="button"
-                  className="btn-ghost min-w-14 px-2 py-1 text-xs tabular-nums"
-                  onClick={resetZoom}
-                  title="Reset zoom (0)"
-                >
-                  {Math.round(zoom * 100)}%
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost px-2.5 py-1 text-xs disabled:opacity-40"
-                  disabled={zoom >= ZOOM_MAX}
-                  onClick={() => zoomBy(ZOOM_STEP)}
-                  title="Perbesar (+)"
-                >
-                  +
-                </button>
-              </div>
+              </>
             )}
             {url && (
               <a
@@ -290,7 +310,7 @@ function FilePreviewModal({
                 draggable={false}
                 className="max-h-full max-w-full select-none rounded-md object-contain transition-transform duration-150"
                 style={{
-                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                  transform: `translate(${offset.x}px, ${offset.y}px) rotate(${rotation}deg) scale(${zoom})`,
                   transformOrigin: "center center",
                 }}
                 onError={() => setAsPdf(true)}
@@ -300,8 +320,8 @@ function FilePreviewModal({
         </div>
         {!asPdf && url && (
           <p className="border-t border-white/10 px-4 py-2 text-center text-[11px] text-[var(--muted)]">
-            Scroll / tombol +− untuk zoom · seret saat diperbesar · dobel-klik
-            untuk reset
+            Scroll / tombol +− untuk zoom · Putar / R untuk putar · seret saat
+            diperbesar · dobel-klik untuk reset zoom
           </p>
         )}
       </div>
