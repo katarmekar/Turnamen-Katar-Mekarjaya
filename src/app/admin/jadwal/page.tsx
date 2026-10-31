@@ -55,7 +55,11 @@ export default async function AdminJadwalPage() {
         },
       },
     },
-    orderBy: [{ round: "asc" }, { createdAt: "asc" }],
+    orderBy: [
+      { scheduledAt: { sort: "asc", nulls: "last" } },
+      { round: "asc" },
+      { createdAt: "asc" },
+    ],
   });
 
   return (
