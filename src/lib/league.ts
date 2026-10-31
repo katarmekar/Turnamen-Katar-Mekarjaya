@@ -1,8 +1,14 @@
 import type { StandingRow } from "@/lib/standings";
 import { computeStandings } from "@/lib/standings";
 
-/** Poin sistem liga: menang 2, seri 1, kalah 0 */
+/** Default poin sistem liga (bisa diubah per turnamen di Edit turnamen). */
 export const LEAGUE_POINTS = { win: 2, draw: 1, loss: 0 } as const;
+
+export type LeaguePointsConfig = {
+  pointsWin?: number;
+  pointsDraw?: number;
+  pointsLoss?: number;
+};
 
 export function isLeagueFormat(format: string | null | undefined): boolean {
   return (
@@ -136,8 +142,12 @@ export function buildGroupMatrices(
     groupIndex: number | null;
     teamId: string | null;
     team: { id: string; name: string } | null;
-  }[]
+  }[],
+  points: LeaguePointsConfig = {}
 ): GroupMatrix[] {
+  const pointsWin = points.pointsWin ?? LEAGUE_POINTS.win;
+  const pointsDraw = points.pointsDraw ?? LEAGUE_POINTS.draw;
+  const pointsLoss = points.pointsLoss ?? LEAGUE_POINTS.loss;
   const groupMatches = matches.filter((m) => m.groupIndex != null);
   const groupIndexes = [
     ...new Set(
@@ -177,7 +187,9 @@ export function buildGroupMatrices(
     );
 
     const standings = computeStandings(gMatches, {
-      pointsWin: LEAGUE_POINTS.win,
+      pointsWin,
+      pointsDraw,
+      pointsLoss,
     });
 
     // Pastikan tim tanpa hasil tetap muncul di klasemen (0 poin)

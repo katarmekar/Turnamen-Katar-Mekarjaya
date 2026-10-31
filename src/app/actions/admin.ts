@@ -314,11 +314,17 @@ export async function saveTournament(
   let groupCount: number | null = null;
   let maxTeamsPerGroup: number | null = null;
   let qualifyPerGroup: number | null = null;
+  let pointsWin = 2;
+  let pointsDraw = 1;
+  let pointsLoss = 0;
 
   if (isLeagueFormat(competitionFormat)) {
     groupCount = Number(formData.get("group_count") ?? 0);
     maxTeamsPerGroup = Number(formData.get("max_teams_per_group") ?? 0);
     qualifyPerGroup = Number(formData.get("qualify_per_group") ?? 0);
+    pointsWin = Number(formData.get("points_win") ?? 2);
+    pointsDraw = Number(formData.get("points_draw") ?? 1);
+    pointsLoss = Number(formData.get("points_loss") ?? 0);
 
     if (
       !Number.isInteger(groupCount) ||
@@ -349,6 +355,15 @@ export async function saveTournament(
         error: `Kapasitas grup (${groupCount}×${maxTeamsPerGroup}=${groupCount * maxTeamsPerGroup}) kurang dari kapasitas turnamen (${maxTeams}).`,
       };
     }
+    for (const [label, value] of [
+      ["Poin menang", pointsWin],
+      ["Poin seri", pointsDraw],
+      ["Poin kalah", pointsLoss],
+    ] as const) {
+      if (!Number.isInteger(value) || value < 0 || value > 20) {
+        return { error: `${label} harus bilangan bulat 0–20.` };
+      }
+    }
   }
 
   if (adminWhatsapp && !/^[\d+\s()-]{8,20}$/.test(adminWhatsapp)) {
@@ -371,6 +386,9 @@ export async function saveTournament(
     groupCount,
     maxTeamsPerGroup,
     qualifyPerGroup,
+    pointsWin,
+    pointsDraw,
+    pointsLoss,
   };
 
   try {

@@ -111,6 +111,10 @@ model Tournament {
   maxTeamsPerGroup     Int?             @map("max_teams_per_group") @db.SmallInt
   /// Tim yang lolos ke fase gugur dari setiap grup
   qualifyPerGroup      Int?             @map("qualify_per_group") @db.SmallInt
+  /// Poin klasemen liga (hanya dipakai jika sistem liga)
+  pointsWin            Int              @default(2) @map("points_win") @db.SmallInt
+  pointsDraw           Int              @default(1) @map("points_draw") @db.SmallInt
+  pointsLoss           Int              @default(0) @map("points_loss") @db.SmallInt
   status               TournamentStatus @default(draft)
   bracketLocked        Boolean          @default(false) @map("bracket_locked")
   /// Naik tiap kali admin mengubah peraturan (manajer harus setuju ulang)

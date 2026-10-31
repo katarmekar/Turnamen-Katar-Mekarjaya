@@ -7,6 +7,9 @@ type LeagueSettingsFieldsProps = {
   defaultGroupCount?: number | null;
   defaultMaxTeamsPerGroup?: number | null;
   defaultQualifyPerGroup?: number | null;
+  defaultPointsWin?: number;
+  defaultPointsDraw?: number;
+  defaultPointsLoss?: number;
   maxTeams?: number;
 };
 
@@ -15,6 +18,9 @@ export function LeagueSettingsFields({
   defaultGroupCount,
   defaultMaxTeamsPerGroup,
   defaultQualifyPerGroup,
+  defaultPointsWin = 2,
+  defaultPointsDraw = 1,
+  defaultPointsLoss = 0,
   maxTeams = 16,
 }: LeagueSettingsFieldsProps) {
   const [format, setFormat] = useState(defaultFormat);
@@ -92,6 +98,45 @@ export function LeagueSettingsFields({
             <span className="text-[11px] text-[var(--muted)]">
               Ke fase gugur (SF/final).
             </span>
+          </label>
+          <p className="sm:col-span-3 mt-1 text-xs font-medium text-white">
+            Poin klasemen
+          </p>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-[var(--muted)]">Poin menang</span>
+            <input
+              name="points_win"
+              type="number"
+              min={0}
+              max={20}
+              required
+              className="input"
+              defaultValue={defaultPointsWin}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-[var(--muted)]">Poin seri</span>
+            <input
+              name="points_draw"
+              type="number"
+              min={0}
+              max={20}
+              required
+              className="input"
+              defaultValue={defaultPointsDraw}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-[var(--muted)]">Poin kalah</span>
+            <input
+              name="points_loss"
+              type="number"
+              min={0}
+              max={20}
+              required
+              className="input"
+              defaultValue={defaultPointsLoss}
+            />
           </label>
         </div>
       )}

@@ -261,7 +261,11 @@ export async function generateKnockoutFromGroups(tournamentId: string) {
     }),
   ]);
 
-  const matrices = buildGroupMatrices(groupMatches, groupSlots);
+  const matrices = buildGroupMatrices(groupMatches, groupSlots, {
+    pointsWin: tournament.pointsWin,
+    pointsDraw: tournament.pointsDraw,
+    pointsLoss: tournament.pointsLoss,
+  });
   const qualifiers = pickQualifiers(matrices, qualifyPerGroup);
   if (qualifiers.length < 2) {
     throw new Error("Minimal 2 tim lolos untuk fase gugur.");

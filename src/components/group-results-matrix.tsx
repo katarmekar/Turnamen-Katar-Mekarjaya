@@ -1,7 +1,18 @@
 import type { GroupMatrix } from "@/lib/league";
+import { LEAGUE_POINTS } from "@/lib/league";
 import { StandingsTable } from "@/components/standings-table";
 
-export function GroupResultsMatrix({ groups }: { groups: GroupMatrix[] }) {
+export function GroupResultsMatrix({
+  groups,
+  pointsWin = LEAGUE_POINTS.win,
+  pointsDraw = LEAGUE_POINTS.draw,
+  pointsLoss = LEAGUE_POINTS.loss,
+}: {
+  groups: GroupMatrix[];
+  pointsWin?: number;
+  pointsDraw?: number;
+  pointsLoss?: number;
+}) {
   if (groups.length === 0) {
     return (
       <p className="text-sm text-[var(--muted)]">
@@ -84,8 +95,8 @@ export function GroupResultsMatrix({ groups }: { groups: GroupMatrix[] }) {
                 </tfoot>
               </table>
               <p className="mt-2 text-xs text-[var(--muted)]">
-                Skor dari sudut pandang tim di baris kiri. Poin: menang 2 · seri
-                1 · kalah 0.
+                Skor dari sudut pandang tim di baris kiri. Poin: menang{" "}
+                {pointsWin} · seri {pointsDraw} · kalah {pointsLoss}.
               </p>
             </div>
           )}

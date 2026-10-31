@@ -36,7 +36,11 @@ export function TournamentBracketView({
     tournament?.teams.filter((t) => t.status === "confirmed").length ?? 0;
 
   const groupMatrices = tournament
-    ? buildGroupMatrices(tournament.matches, tournament.bracketSlots)
+    ? buildGroupMatrices(tournament.matches, tournament.bracketSlots, {
+        pointsWin: tournament.pointsWin,
+        pointsDraw: tournament.pointsDraw,
+        pointsLoss: tournament.pointsLoss,
+      })
     : [];
 
   const knockoutMatches = tournament
@@ -105,7 +109,12 @@ export function TournamentBracketView({
                       admin memasukkan hasil di Jadwal &amp; skor.
                     </p>
                     <div className="mt-4">
-                      <GroupResultsMatrix groups={groupMatrices} />
+                      <GroupResultsMatrix
+                        groups={groupMatrices}
+                        pointsWin={tournament.pointsWin}
+                        pointsDraw={tournament.pointsDraw}
+                        pointsLoss={tournament.pointsLoss}
+                      />
                     </div>
                   </div>
 

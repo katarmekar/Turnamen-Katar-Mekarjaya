@@ -107,6 +107,9 @@ export default async function AdminTurnamenPage({ searchParams }: PageProps) {
                 defaultGroupCount={active?.groupCount}
                 defaultMaxTeamsPerGroup={active?.maxTeamsPerGroup}
                 defaultQualifyPerGroup={active?.qualifyPerGroup}
+                defaultPointsWin={active?.pointsWin ?? 2}
+                defaultPointsDraw={active?.pointsDraw ?? 1}
+                defaultPointsLoss={active?.pointsLoss ?? 0}
                 maxTeams={active?.maxTeams ?? 16}
               />
               <label className="flex flex-col gap-1 text-sm">
