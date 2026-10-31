@@ -3,10 +3,7 @@
 import { getSelectedTournamentId } from "@/lib/admin-tournament";
 import { requireProfile } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createServiceClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
-
-const SIGNED_TTL_SEC = 3600;
+import { signPlayerDocPath } from "@/lib/player-docs-signed";
 
 async function canAccessTeam(teamId: string): Promise<boolean> {
   const profile = await requireProfile();
@@ -26,16 +23,7 @@ async function canAccessTeam(teamId: string): Promise<boolean> {
   return !!team;
 }
 
-async function signPath(path: string): Promise<string | null> {
-  const service = createServiceClient();
-  const supabase = service ?? (await createClient());
-  const { data } = await supabase.storage
-    .from("player-docs")
-    .createSignedUrl(path, SIGNED_TTL_SEC);
-  return data?.signedUrl ?? null;
-}
-
-/** Signed URL on-demand — hindari generate massal di halaman admin. */
+/** Signed URL on-demand — untuk preview klik; thumbnail diisi batch di roster. */
 export async function getPlayerMediaSignedUrl(input: {
   teamId: string;
   playerId: string;
@@ -57,7 +45,7 @@ export async function getPlayerMediaSignedUrl(input: {
     });
     if (!player) return { error: "Pemain tidak ditemukan." };
     if (!player.photoPath) return { error: "Foto belum diunggah." };
-    const url = await signPath(player.photoPath);
+    const url = await signPlayerDocPath(player.photoPath);
     return url ? { url } : { error: "Gagal membuat tautan foto." };
   }
 
@@ -68,6 +56,6 @@ export async function getPlayerMediaSignedUrl(input: {
   });
   if (!doc) return { error: "Berkas tidak ditemukan." };
 
-  const url = await signPath(doc.filePath);
+  const url = await signPlayerDocPath(doc.filePath);
   return url ? { url } : { error: "Gagal membuat tautan berkas." };
 }

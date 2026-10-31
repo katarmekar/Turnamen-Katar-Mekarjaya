@@ -16,3 +16,6 @@ next-env.d.ts
 
 .vercel
 supabase/.temp/
+.temp/
+.env*.backup
+*.tokyo.backup

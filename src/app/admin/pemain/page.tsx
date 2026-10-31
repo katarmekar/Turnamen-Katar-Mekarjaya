@@ -26,11 +26,11 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
   const [teams, docCards, playerFields] = await Promise.all([
     prisma.team.findMany({
       where: { tournamentId: tournament.id },
-      include: {
-        players: {
-          include: { documents: { orderBy: { createdAt: "asc" } } },
-          orderBy: { createdAt: "asc" },
-        },
+      select: {
+        id: true,
+        name: true,
+        city: true,
+        status: true,
         _count: { select: { players: true } },
       },
       orderBy: [{ status: "asc" }, { name: "asc" }],
@@ -47,13 +47,8 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
 
   const activeCards = docCards.filter((c) => c.active);
   const activeFields = playerFields.filter((f) => f.active);
-  const labelByKey = Object.fromEntries(docCards.map((c) => [c.key, c.label]));
 
   const totalPlayers = teams.reduce((n, t) => n + t._count.players, 0);
-  const totalDocs = teams.reduce(
-    (n, t) => n + t.players.reduce((pn, p) => pn + p.documents.length, 0),
-    0
-  );
 
   const statusRank: Record<string, number> = {
     confirmed: 0,
@@ -84,38 +79,19 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
     active: true,
   }));
 
-  const teamViews = teams.map((team) => ({
+  const teamSummaries = teams.map((team) => ({
     id: team.id,
     name: team.name,
     city: team.city,
     status: team.status,
-    players: team.players.map((player) => ({
-      id: player.id,
-      fullName: player.fullName,
-      jerseyNumber: player.jerseyNumber,
-      position: player.position,
-      identityNumber: player.identityNumber,
-      hasPhoto: Boolean(player.photoPath),
-      photoUrl: null,
-      extraData:
-        player.extraData &&
-        typeof player.extraData === "object" &&
-        !Array.isArray(player.extraData)
-          ? (player.extraData as Record<string, string>)
-          : {},
-      documents: player.documents.map((doc) => ({
-        id: doc.id,
-        docType: doc.docType,
-        label: labelByKey[doc.docType] ?? doc.docType,
-      })),
-    })),
+    playerCount: team._count.players,
   }));
 
   return (
     <AdminPageShell
       profile={profile}
       title="Pemain & berkas"
-      description={`${tournament.name} · ${teams.length} tim · ${totalPlayers} pemain · ${totalDocs} berkas · admin dapat kelola data tanpa batasan jadwal`}
+      description={`${tournament.name} · ${teams.length} tim · ${totalPlayers} pemain · buka satu tim untuk kelola roster`}
     >
       {teams.length === 0 ? (
         <div className="panel mt-6 p-6">
@@ -125,7 +101,7 @@ export default async function AdminPemainPage({ searchParams }: PageProps) {
         </div>
       ) : (
         <AdminTeamsPlayersList
-          teams={teamViews}
+          teams={teamSummaries}
           fields={fieldDefs}
           docCards={cardDefs}
           minPlayerDocuments={tournament.minPlayerDocuments}

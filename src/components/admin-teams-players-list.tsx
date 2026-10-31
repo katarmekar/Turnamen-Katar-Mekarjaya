@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { getAdminTeamRoster } from "@/app/actions/admin-roster";
 import {
   AddPlayerForm,
   type DocCardDef,
@@ -12,16 +13,16 @@ import {
 } from "@/components/players-roster-table";
 import { TEAM_STATUS_LABEL } from "@/lib/format";
 
-export type AdminTeamPlayersView = {
+export type AdminTeamSummary = {
   id: string;
   name: string;
   city: string | null;
   status: string;
-  players: RosterPlayer[];
+  playerCount: number;
 };
 
 type AdminTeamsPlayersListProps = {
-  teams: AdminTeamPlayersView[];
+  teams: AdminTeamSummary[];
   fields: PlayerFieldDef[];
   docCards: DocCardDef[];
   minPlayerDocuments: number;
@@ -29,6 +30,19 @@ type AdminTeamsPlayersListProps = {
   /** Tim yang dibuka otomatis (opsional) */
   initialOpenTeamId?: string | null;
 };
+
+function withDocLabels(
+  players: RosterPlayer[],
+  labelByKey: Record<string, string>
+): RosterPlayer[] {
+  return players.map((p) => ({
+    ...p,
+    documents: p.documents.map((d) => ({
+      ...d,
+      label: d.label ?? labelByKey[d.docType] ?? d.docType,
+    })),
+  }));
+}
 
 export function AdminTeamsPlayersList({
   teams,
@@ -38,48 +52,126 @@ export function AdminTeamsPlayersList({
   maxPlayersPerTeam,
   initialOpenTeamId = null,
 }: AdminTeamsPlayersListProps) {
-  const [openIds, setOpenIds] = useState<Set<string>>(() =>
-    initialOpenTeamId ? new Set([initialOpenTeamId]) : new Set()
+  const labelByKey = useMemo(
+    () => Object.fromEntries(docCards.map((c) => [c.key, c.label])),
+    [docCards]
   );
 
-  const allOpen = useMemo(
-    () => teams.length > 0 && teams.every((t) => openIds.has(t.id)),
-    [teams, openIds]
+  const [openTeamId, setOpenTeamId] = useState<string | null>(
+    initialOpenTeamId
   );
+  const [counts, setCounts] = useState<Record<string, number>>(() =>
+    Object.fromEntries(teams.map((t) => [t.id, t.playerCount]))
+  );
+  const [cache, setCache] = useState<Record<string, RosterPlayer[]>>({});
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [, startLoad] = useTransition();
+  const prefetching = useRef<Set<string>>(new Set());
+  const initialLoaded = useRef(false);
 
-  function toggle(teamId: string) {
-    setOpenIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(teamId)) next.delete(teamId);
-      else next.add(teamId);
+  useEffect(() => {
+    setCounts((prev) => {
+      const next = { ...prev };
+      for (const t of teams) {
+        next[t.id] = t.playerCount;
+      }
       return next;
     });
+  }, [teams]);
+
+  const applyResult = useCallback(
+    (teamId: string, players: RosterPlayer[], playerCount: number) => {
+      const labeled = withDocLabels(players, labelByKey);
+      setCache((prev) => ({ ...prev, [teamId]: labeled }));
+      setCounts((prev) => ({ ...prev, [teamId]: playerCount }));
+    },
+    [labelByKey]
+  );
+
+  const fetchRoster = useCallback(
+    (teamId: string, opts?: { force?: boolean; silent?: boolean }) => {
+      const force = opts?.force ?? false;
+      const silent = opts?.silent ?? false;
+
+      if (!force && cache[teamId]) {
+        return;
+      }
+
+      if (!silent) {
+        setLoadError(null);
+        setLoadingId(teamId);
+      }
+
+      startLoad(async () => {
+        const result = await getAdminTeamRoster(teamId);
+        if (!silent) setLoadingId((cur) => (cur === teamId ? null : cur));
+
+        if (!result.ok) {
+          if (!silent) setLoadError(result.error);
+          return;
+        }
+        applyResult(teamId, result.players, result.playerCount);
+      });
+    },
+    [applyResult, cache]
+  );
+
+  const prefetch = useCallback(
+    (teamId: string) => {
+      if (cache[teamId] || prefetching.current.has(teamId)) return;
+      prefetching.current.add(teamId);
+      void getAdminTeamRoster(teamId).then((result) => {
+        prefetching.current.delete(teamId);
+        if (!result.ok) return;
+        applyResult(teamId, result.players, result.playerCount);
+      });
+    },
+    [applyResult, cache]
+  );
+
+  useEffect(() => {
+    if (initialLoaded.current) return;
+    if (!initialOpenTeamId) return;
+    if (!teams.some((t) => t.id === initialOpenTeamId)) return;
+    initialLoaded.current = true;
+    setOpenTeamId(initialOpenTeamId);
+    fetchRoster(initialOpenTeamId, { force: true });
+  }, [initialOpenTeamId, teams, fetchRoster]);
+
+  function toggle(teamId: string) {
+    if (openTeamId === teamId) {
+      setOpenTeamId(null);
+      setLoadError(null);
+      setLoadingId(null);
+      return;
+    }
+    setOpenTeamId(teamId);
+    setLoadError(null);
+    if (cache[teamId]) {
+      // Langsung tampil dari cache; refresh diam di background
+      setLoadingId(null);
+      fetchRoster(teamId, { force: true, silent: true });
+      return;
+    }
+    fetchRoster(teamId, { force: true });
   }
 
-  function setAll(open: boolean) {
-    setOpenIds(open ? new Set(teams.map((t) => t.id)) : new Set());
-  }
+  const openRoster = openTeamId ? cache[openTeamId] : undefined;
+  const openLoading = openTeamId != null && loadingId === openTeamId && !openRoster;
 
   return (
     <div className="mt-6 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-[var(--muted)]">
-          Admin dapat menambah, mengubah, dan menghapus data pemain tanpa
-          batasan jadwal pertandingan.
-        </p>
-        <button
-          type="button"
-          className="btn-ghost border border-white/15 px-3 py-1.5 text-xs"
-          onClick={() => setAll(!allOpen)}
-        >
-          {allOpen ? "Tutup semua detail" : "Buka semua detail"}
-        </button>
-      </div>
+      <p className="text-xs text-[var(--muted)]">
+        Data pemain dimuat saat tim dibuka (dan di-cache). Hanya satu tim
+        terbuka — admin dapat kelola tanpa batasan jadwal.
+      </p>
 
       {teams.map((team) => {
-        const open = openIds.has(team.id);
+        const open = openTeamId === team.id;
         const panelId = `tim-detail-${team.id}`;
-        const canAdd = team.players.length < maxPlayersPerTeam;
+        const playerCount = counts[team.id] ?? team.playerCount;
+        const canAdd = playerCount < maxPlayersPerTeam;
 
         return (
           <section
@@ -97,12 +189,14 @@ export function AdminTeamsPlayersList({
               aria-expanded={open}
               aria-controls={panelId}
               onClick={() => toggle(team.id)}
+              onMouseEnter={() => prefetch(team.id)}
+              onFocus={() => prefetch(team.id)}
             >
               <div className="min-w-0">
                 <h2 className="font-semibold text-white">{team.name}</h2>
                 <p className="mt-1 text-sm text-[var(--muted)]">
                   {TEAM_STATUS_LABEL[team.status] ?? team.status} ·{" "}
-                  {team.players.length} / {maxPlayersPerTeam} pemain
+                  {playerCount} / {maxPlayersPerTeam} pemain
                   {team.city ? ` · ${team.city}` : ""}
                 </p>
               </div>
@@ -136,6 +230,9 @@ export function AdminTeamsPlayersList({
                       minPlayerDocuments={minPlayerDocuments}
                       canAdd={canAdd}
                       documentsOptional
+                      onSaved={() =>
+                        fetchRoster(team.id, { force: true })
+                      }
                     />
                   </div>
                 </div>
@@ -147,16 +244,41 @@ export function AdminTeamsPlayersList({
                     </h3>
                     <p className="mt-1 text-xs text-[var(--muted)]">
                       Edit data, tambah berkas, atau hapus pemain.
+                      {loadingId === team.id && openRoster
+                        ? " · memperbarui…"
+                        : ""}
                     </p>
                   </div>
-                  <PlayersRosterTable
-                    teamId={team.id}
-                    players={team.players}
-                    fields={fields}
-                    docCards={docCards}
-                    minPlayerDocuments={minPlayerDocuments}
-                    locked={false}
-                  />
+                  {openLoading ? (
+                    <p className="px-4 py-6 text-sm text-[var(--muted)]">
+                      Memuat data pemain…
+                    </p>
+                  ) : loadError ? (
+                    <div className="px-4 py-6">
+                      <p className="text-sm text-red-300">{loadError}</p>
+                      <button
+                        type="button"
+                        className="btn-ghost mt-3 border border-white/15 px-3 py-1.5 text-xs"
+                        onClick={() =>
+                          fetchRoster(team.id, { force: true })
+                        }
+                      >
+                        Coba lagi
+                      </button>
+                    </div>
+                  ) : (
+                    <PlayersRosterTable
+                      teamId={team.id}
+                      players={openRoster ?? []}
+                      fields={fields}
+                      docCards={docCards}
+                      minPlayerDocuments={minPlayerDocuments}
+                      locked={false}
+                      onChanged={() =>
+                        fetchRoster(team.id, { force: true })
+                      }
+                    />
+                  )}
                 </div>
               </div>
             )}

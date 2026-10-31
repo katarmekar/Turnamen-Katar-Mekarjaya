@@ -42,6 +42,8 @@ type PlayersRosterTableProps = {
   docCards: DocCardDef[];
   minPlayerDocuments: number;
   locked?: boolean;
+  /** Setelah edit / hapus / upload berkas — mis. reload lazy roster */
+  onChanged?: () => void;
 };
 
 type PreviewTarget = {
@@ -326,7 +328,11 @@ function LazyPlayerPhoto({
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
-    if (!hasPhoto || url) return;
+    if (cachedUrl) setUrl(cachedUrl);
+  }, [cachedUrl]);
+
+  useEffect(() => {
+    if (!hasPhoto || url || cachedUrl) return;
     let cancelled = false;
     setPending(true);
     void getPlayerMediaSignedUrl({
@@ -341,7 +347,7 @@ function LazyPlayerPhoto({
     return () => {
       cancelled = true;
     };
-  }, [hasPhoto, url, teamId, playerId]);
+  }, [hasPhoto, url, cachedUrl, teamId, playerId]);
 
   if (!hasPhoto) {
     return (
@@ -398,11 +404,13 @@ function EditPlayerForm({
   player,
   fields,
   onDone,
+  onChanged,
 }: {
   teamId: string;
   player: RosterPlayer;
   fields: PlayerFieldDef[];
   onDone: () => void;
+  onChanged?: () => void;
 }) {
   const [state, formAction, pending] = useActionState(
     updatePlayer,
@@ -410,8 +418,10 @@ function EditPlayerForm({
   );
 
   useEffect(() => {
-    if (state.success) onDone();
-  }, [state.success, onDone]);
+    if (!state.success) return;
+    onDone();
+    onChanged?.();
+  }, [state.success, onDone, onChanged]);
 
   return (
     <form action={formAction} className="mt-3 space-y-3 rounded-lg border border-white/10 bg-black/20 p-3">
@@ -488,11 +498,13 @@ function AddDocSlot({
   playerId,
   remaining,
   onUploaded,
+  onChanged,
 }: {
   teamId: string;
   playerId: string;
   remaining: DocCardDef[];
   onUploaded: (docType: string) => void;
+  onChanged?: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [slotKey, setSlotKey] = useState(0);
@@ -518,6 +530,7 @@ function AddDocSlot({
       setState(result);
       if (result.success && result.docType) {
         onUploaded(result.docType);
+        onChanged?.();
         setSlotKey((k) => k + 1);
         if (fileRef.current) fileRef.current.value = "";
       }
@@ -572,14 +585,20 @@ function AddDocSlot({
 function DeleteButton({
   teamId,
   playerId,
+  onChanged,
 }: {
   teamId: string;
   playerId: string;
+  onChanged?: () => void;
 }) {
   const [state, formAction, pending] = useActionState(
     deletePlayerAction,
     {} as ActionState
   );
+
+  useEffect(() => {
+    if (state.success) onChanged?.();
+  }, [state.success, onChanged]);
 
   return (
     <form action={formAction} className="inline">
@@ -611,6 +630,7 @@ export function PlayersRosterTable({
   docCards,
   minPlayerDocuments,
   locked = false,
+  onChanged,
 }: PlayersRosterTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [addingDocId, setAddingDocId] = useState<string | null>(null);
@@ -701,6 +721,7 @@ export function PlayersRosterTable({
                       player={player}
                       fields={fields}
                       onDone={() => setEditingId(null)}
+                      onChanged={onChanged}
                     />
                   )}
                   {!locked && isAddingDoc && (
@@ -709,8 +730,9 @@ export function PlayersRosterTable({
                       playerId={player.id}
                       remaining={remaining}
                       onUploaded={() => {
-                        /* revalidate dari server action */
+                        /* roster di-reload lewat onChanged */
                       }}
+                      onChanged={onChanged}
                     />
                   )}
                 </td>
@@ -783,7 +805,11 @@ export function PlayersRosterTable({
                           {isAddingDoc ? "Tutup" : "Berkas"}
                         </button>
                       )}
-                      <DeleteButton teamId={teamId} playerId={player.id} />
+                      <DeleteButton
+                        teamId={teamId}
+                        playerId={player.id}
+                        onChanged={onChanged}
+                      />
                     </div>
                   </td>
                 )}

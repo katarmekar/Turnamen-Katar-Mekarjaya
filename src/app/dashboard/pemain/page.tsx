@@ -10,6 +10,7 @@ import {
 } from "@/lib/payment-gate";
 import { ensureDefaultDocCards } from "@/lib/doc-cards";
 import { ensureDefaultPlayerFields } from "@/lib/player-fields";
+import { signPlayerDocPaths } from "@/lib/player-docs-signed";
 import { prisma } from "@/lib/prisma";
 import { isRosterLocked } from "@/lib/roster-lock";
 
@@ -88,6 +89,12 @@ export default async function PemainPage({
     activeCards.map((c) => [c.key, c.label])
   );
 
+  const photoUrls = await signPlayerDocPaths(
+    team.players
+      .map((p) => p.photoPath)
+      .filter((path): path is string => Boolean(path))
+  );
+
   const rosterPlayers = team.players.map((p) => ({
     id: p.id,
     fullName: p.fullName,
@@ -95,7 +102,7 @@ export default async function PemainPage({
     jerseyNumber: p.jerseyNumber,
     position: p.position,
     hasPhoto: Boolean(p.photoPath),
-    photoUrl: null as string | null,
+    photoUrl: p.photoPath ? (photoUrls.get(p.photoPath) ?? null) : null,
     extraData:
       p.extraData &&
       typeof p.extraData === "object" &&

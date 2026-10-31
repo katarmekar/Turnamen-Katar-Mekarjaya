@@ -43,6 +43,8 @@ type AddPlayerFormProps = {
   canAdd: boolean;
   /** Admin: boleh simpan tanpa berkas wajib */
   documentsOptional?: boolean;
+  /** Dipanggil setelah simpan sukses (mis. reload roster lazy) */
+  onSaved?: () => void;
 };
 
 function emptySlots(count: number): DocSlot[] {
@@ -56,6 +58,7 @@ export function AddPlayerForm({
   minPlayerDocuments,
   canAdd,
   documentsOptional = false,
+  onSaved,
 }: AddPlayerFormProps) {
   const [formKey, setFormKey] = useState(0);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -214,6 +217,7 @@ export function AddPlayerForm({
             error: `Pemain tersimpan, tetapi berkas gagal: ${failedDocs.join(", ")}. Lanjut upload dari daftar pemain.`,
           });
           setFormKey((k) => k + 1);
+          onSaved?.();
           return;
         }
 
@@ -225,6 +229,7 @@ export function AddPlayerForm({
               : "Pemain berhasil disimpan.",
         });
         setFormKey((k) => k + 1);
+        onSaved?.();
       } catch (err) {
         setProgress(null);
         setState({
