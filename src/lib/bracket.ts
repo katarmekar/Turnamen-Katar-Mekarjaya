@@ -4,6 +4,7 @@ import {
   groupLetter,
   isLeagueFormat,
   pickQualifiers,
+  type QualifierInfo,
 } from "@/lib/league";
 import { prisma } from "@/lib/prisma";
 import {
@@ -14,7 +15,19 @@ import {
 const TX_OPTS = { maxWait: 15_000, timeout: 120_000 } as const;
 
 /** Round awal fase gugur setelah grup (hindari bentrok dengan leg 1/2 grup). */
-const KNOCKOUT_ROUND_BASE = 10;
+export const KNOCKOUT_ROUND_BASE = 10;
+
+export type KnockoutRound1Entry =
+  | { teamId: string; isBye: false }
+  | { teamId: null; isBye: true };
+
+export type KnockoutBuildResult = {
+  mode: "knockout_from_groups";
+  qualifierCount: number;
+  bracketSize: number;
+  byeCount: number;
+  matchCount: number;
+};
 
 function shuffle<T>(items: T[]): T[] {
   const arr = [...items];
@@ -206,11 +219,39 @@ export async function generateRoundRobin(tournamentId: string) {
   };
 }
 
-/**
- * Setelah fase grup selesai: buat bagan gugur dari tim yang lolos.
- * Mempertahankan slot/match grup yang sudah ada.
- */
-export async function generateKnockoutFromGroups(tournamentId: string) {
+function isByeAutoKnockoutResult(
+  resultType: string | null | undefined,
+  notes: string | null | undefined
+): boolean {
+  if (!resultType) return false;
+  return (notes ?? "").includes("BYE");
+}
+
+/** True jika sudah ada skor/hasil nyata di fase gugur (bukan BYE otomatis). */
+export async function hasKnockoutScores(tournamentId: string): Promise<boolean> {
+  const matches = await prisma.match.findMany({
+    where: {
+      tournamentId,
+      groupIndex: null,
+      round: { gte: KNOCKOUT_ROUND_BASE },
+      resultType: { not: null },
+    },
+    select: { resultType: true, notes: true },
+  });
+  return matches.some(
+    (m) => !isByeAutoKnockoutResult(m.resultType, m.notes)
+  );
+}
+
+export async function resolveQualifiers(
+  tournamentId: string
+): Promise<{
+  qualifiers: QualifierInfo[];
+  bracketSize: number;
+  byeCount: number;
+  groupCount: number;
+  qualifyPerGroup: number;
+}> {
   const tournament = await prisma.tournament.findUniqueOrThrow({
     where: { id: tournamentId },
   });
@@ -240,13 +281,6 @@ export async function generateKnockoutFromGroups(tournamentId: string) {
     );
   }
 
-  const existingKo = await prisma.match.count({
-    where: { tournamentId, groupIndex: null, round: { gte: KNOCKOUT_ROUND_BASE } },
-  });
-  if (existingKo > 0) {
-    throw new Error("Fase gugur sudah dibuat.");
-  }
-
   const [groupMatches, groupSlots] = await Promise.all([
     prisma.match.findMany({
       where: { tournamentId, groupIndex: { not: null } },
@@ -271,25 +305,158 @@ export async function generateKnockoutFromGroups(tournamentId: string) {
     throw new Error("Minimal 2 tim lolos untuk fase gugur.");
   }
 
-  // Minimum 4 agar bagan selalu SF→final (bukan final 2 slot saja).
   const bracketSize = Math.max(4, nextPowerOf2(qualifiers.length));
   if (bracketSize > 64) {
     throw new Error("Jumlah tim lolos terlalu banyak untuk bagan (maks 64).");
   }
 
-  const shuffled = shuffle(qualifiers.map((q) => q.teamId));
-  const byeCount = bracketSize - shuffled.length;
-  const round1Entries: (
-    | { teamId: string; isBye: false }
-    | { teamId: null; isBye: true }
-  )[] = [
-    ...shuffled.map((id) => ({ teamId: id, isBye: false as const })),
+  return {
+    qualifiers,
+    bracketSize,
+    byeCount: bracketSize - qualifiers.length,
+    groupCount: tournament.groupCount ?? matrices.length,
+    qualifyPerGroup,
+  };
+}
+
+function validatePlacement(
+  placement: KnockoutRound1Entry[],
+  qualifiers: QualifierInfo[],
+  bracketSize: number
+) {
+  if (placement.length !== bracketSize) {
+    throw new Error(
+      `Placement harus ${bracketSize} slot (diterima ${placement.length}).`
+    );
+  }
+
+  const qualifierIds = new Set(qualifiers.map((q) => q.teamId));
+  const used = new Set<string>();
+  let byeCount = 0;
+
+  for (const entry of placement) {
+    if (entry.isBye) {
+      byeCount += 1;
+      continue;
+    }
+    if (!qualifierIds.has(entry.teamId)) {
+      throw new Error("Ada tim yang bukan peserta lolos fase gugur.");
+    }
+    if (used.has(entry.teamId)) {
+      throw new Error("Setiap tim lolos hanya boleh dipakai sekali.");
+    }
+    used.add(entry.teamId);
+  }
+
+  if (used.size !== qualifiers.length) {
+    throw new Error("Semua tim lolos harus ditempatkan di bagan.");
+  }
+  if (byeCount !== bracketSize - qualifiers.length) {
+    throw new Error(
+      `Jumlah BYE harus ${bracketSize - qualifiers.length} (diterima ${byeCount}).`
+    );
+  }
+}
+
+export function placementFromTeamIds(
+  slotValues: (string | "bye")[],
+  qualifiers: QualifierInfo[],
+  bracketSize: number
+): KnockoutRound1Entry[] {
+  const placement: KnockoutRound1Entry[] = slotValues.map((v) => {
+    if (v === "bye" || v === "") {
+      return { teamId: null, isBye: true };
+    }
+    return { teamId: v, isBye: false };
+  });
+  validatePlacement(placement, qualifiers, bracketSize);
+  return placement;
+}
+
+export function placementFromRoles(
+  roles: ({ groupIndex: number; rank: number } | null)[],
+  qualifiers: QualifierInfo[],
+  bracketSize: number
+): KnockoutRound1Entry[] {
+  if (roles.length !== bracketSize) {
+    throw new Error(
+      `Placement peran harus ${bracketSize} slot (diterima ${roles.length}).`
+    );
+  }
+
+  const byRole = new Map<string, QualifierInfo>(
+    qualifiers.map((q) => [`${q.groupIndex}:${q.rank}`, q])
+  );
+  const usedRoles = new Set<string>();
+  const placement: KnockoutRound1Entry[] = roles.map((role) => {
+    if (role == null) return { teamId: null, isBye: true };
+    const keyRole = `${role.groupIndex}:${role.rank}`;
+    if (usedRoles.has(keyRole)) {
+      throw new Error(`Peran ganda: ${qualifiers.find((q) => q.groupIndex === role.groupIndex && q.rank === role.rank)?.label ?? keyRole}`);
+    }
+    const q = byRole.get(keyRole);
+    if (!q) {
+      throw new Error(
+        `Peran tidak valid: grup ${groupLetter(role.groupIndex)} peringkat ${role.rank}.`
+      );
+    }
+    usedRoles.add(keyRole);
+    return { teamId: q.teamId, isBye: false };
+  });
+
+  validatePlacement(placement, qualifiers, bracketSize);
+  return placement;
+}
+
+export function randomKnockoutPlacement(
+  qualifiers: QualifierInfo[],
+  bracketSize: number
+): KnockoutRound1Entry[] {
+  const byeCount = bracketSize - qualifiers.length;
+  const entries: KnockoutRound1Entry[] = [
+    ...qualifiers.map((q) => ({ teamId: q.teamId, isBye: false as const })),
     ...Array.from({ length: byeCount }, () => ({
       teamId: null,
       isBye: true as const,
     })),
   ];
-  const placed = shuffle(round1Entries);
+  return shuffle(entries);
+}
+
+/**
+ * Bangun / bangun ulang bagan gugur dari urutan slot R1.
+ * Hapus KO lama jika belum ada skor nyata.
+ */
+export async function buildKnockoutFromPlacement(
+  tournamentId: string,
+  placed: KnockoutRound1Entry[],
+  options?: { allowReplace?: boolean }
+): Promise<KnockoutBuildResult> {
+  const allowReplace = options?.allowReplace ?? false;
+  const { qualifiers, bracketSize, byeCount } =
+    await resolveQualifiers(tournamentId);
+
+  validatePlacement(placed, qualifiers, bracketSize);
+
+  const existingKo = await prisma.match.count({
+    where: {
+      tournamentId,
+      groupIndex: null,
+      round: { gte: KNOCKOUT_ROUND_BASE },
+    },
+  });
+
+  if (existingKo > 0) {
+    if (!allowReplace) {
+      throw new Error("Fase gugur sudah dibuat.");
+    }
+    if (await hasKnockoutScores(tournamentId)) {
+      throw new Error(
+        "Bagan gugur terkunci karena sudah ada skor. Tidak bisa diatur ulang."
+      );
+    }
+  }
+
   const half = bracketSize / 2;
   const totalRounds = Math.log2(bracketSize);
   const roundOffset = KNOCKOUT_ROUND_BASE - 1;
@@ -426,6 +593,23 @@ export async function generateKnockoutFromGroups(tournamentId: string) {
   });
 
   await prisma.$transaction(async (tx) => {
+    if (existingKo > 0) {
+      await tx.match.deleteMany({
+        where: {
+          tournamentId,
+          groupIndex: null,
+          round: { gte: KNOCKOUT_ROUND_BASE },
+        },
+      });
+      await tx.bracketSlot.deleteMany({
+        where: {
+          tournamentId,
+          groupIndex: null,
+          round: { gte: KNOCKOUT_ROUND_BASE },
+        },
+      });
+    }
+
     const createdSlots = await tx.bracketSlot.createManyAndReturn({
       data: [...drafts.values()].map((d) => ({
         tournamentId,
@@ -472,12 +656,33 @@ export async function generateKnockoutFromGroups(tournamentId: string) {
   }, TX_OPTS);
 
   return {
-    mode: "knockout_from_groups" as const,
+    mode: "knockout_from_groups",
     qualifierCount: qualifiers.length,
     bracketSize,
     byeCount,
     matchCount: matchDrafts.length,
   };
+}
+
+/**
+ * Setelah fase grup selesai: buat bagan gugur acak dari tim yang lolos.
+ * Mempertahankan slot/match grup. Untuk seed awal / buat pertama kali.
+ */
+export async function generateKnockoutFromGroups(tournamentId: string) {
+  const { qualifiers, bracketSize } = await resolveQualifiers(tournamentId);
+  const placed = randomKnockoutPlacement(qualifiers, bracketSize);
+  return buildKnockoutFromPlacement(tournamentId, placed, {
+    allowReplace: false,
+  });
+}
+
+/** Acak ulang pairing fase gugur (hanya jika belum ada skor KO). */
+export async function reshuffleKnockoutFromGroups(tournamentId: string) {
+  const { qualifiers, bracketSize } = await resolveQualifiers(tournamentId);
+  const placed = randomKnockoutPlacement(qualifiers, bracketSize);
+  return buildKnockoutFromPlacement(tournamentId, placed, {
+    allowReplace: true,
+  });
 }
 
 /**

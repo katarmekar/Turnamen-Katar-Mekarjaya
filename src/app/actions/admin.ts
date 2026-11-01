@@ -11,8 +11,13 @@ import {
   getSelectedTournamentId,
 } from "@/lib/admin-tournament";
 import {
+  buildKnockoutFromPlacement,
   generateCompetition,
   generateKnockoutFromGroups,
+  placementFromRoles,
+  placementFromTeamIds,
+  reshuffleKnockoutFromGroups,
+  resolveQualifiers,
   submitMatchResult,
 } from "@/lib/bracket";
 import { isLeagueFormat } from "@/lib/league";
@@ -494,6 +499,101 @@ export async function startKnockoutPhase(
   } catch (e) {
     return {
       error: e instanceof Error ? e.message : "Gagal membuat fase gugur",
+    };
+  }
+}
+
+/** Acak ulang pairing fase gugur (belum ada skor). */
+export async function reshuffleKnockoutPhase(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireRole("admin");
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  try {
+    const result = await reshuffleKnockoutFromGroups(tournamentId);
+    revalidatePath("/admin/bagan");
+    revalidatePath("/admin/jadwal");
+    revalidatePath("/bagan");
+    revalidatePath("/dashboard");
+    return {
+      success: `Pairing gugur diacak ulang: ${result.qualifierCount} tim · bagan ${result.bracketSize} (${result.byeCount} BYE).`,
+    };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Gagal mengacak ulang fase gugur",
+    };
+  }
+}
+
+/**
+ * Simpan pairing fase gugur manual.
+ * Form: tournament_id, mode = roles|teams, placement = JSON array.
+ * roles: ({groupIndex,rank}|null)[]
+ * teams: (teamId|"bye")[]
+ */
+export async function setKnockoutPlacement(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireRole("admin");
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  const mode = String(formData.get("mode") ?? "");
+  const raw = String(formData.get("placement") ?? "");
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return { error: "Format placement tidak valid." };
+    }
+
+    const { qualifiers, bracketSize } = await resolveQualifiers(tournamentId);
+
+    let placed;
+    if (mode === "roles") {
+      const roles = parsed.map((item) => {
+        if (item == null) return null;
+        if (
+          typeof item !== "object" ||
+          !("groupIndex" in item) ||
+          !("rank" in item)
+        ) {
+          throw new Error("Setiap slot peran harus { groupIndex, rank } atau null.");
+        }
+        const groupIndex = Number(
+          (item as { groupIndex: unknown }).groupIndex
+        );
+        const rank = Number((item as { rank: unknown }).rank);
+        if (!Number.isFinite(groupIndex) || !Number.isFinite(rank)) {
+          throw new Error("groupIndex/rank tidak valid.");
+        }
+        return { groupIndex, rank };
+      });
+      placed = placementFromRoles(roles, qualifiers, bracketSize);
+    } else if (mode === "teams") {
+      const slots = parsed.map((item) => {
+        if (item == null || item === "bye" || item === "") return "bye" as const;
+        return String(item);
+      });
+      placed = placementFromTeamIds(slots, qualifiers, bracketSize);
+    } else {
+      return { error: "Mode placement harus roles atau teams." };
+    }
+
+    const result = await buildKnockoutFromPlacement(tournamentId, placed, {
+      allowReplace: true,
+    });
+    revalidatePath("/admin/bagan");
+    revalidatePath("/admin/jadwal");
+    revalidatePath("/bagan");
+    revalidatePath("/dashboard");
+    return {
+      success: `Pairing gugur disimpan: bagan ${result.bracketSize} · ${result.matchCount} pertandingan.`,
+    };
+  } catch (e) {
+    return {
+      error:
+        e instanceof Error ? e.message : "Gagal menyimpan pairing fase gugur",
     };
   }
 }

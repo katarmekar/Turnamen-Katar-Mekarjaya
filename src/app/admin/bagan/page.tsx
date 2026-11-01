@@ -3,6 +3,11 @@ import { AdminPageShell } from "@/components/admin-page-shell";
 import { BracketShufflePanel } from "@/components/bracket-shuffle-panel";
 import { requireSelectedTournament } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
+import {
+  KNOCKOUT_ROUND_BASE,
+  resolveQualifiers,
+} from "@/lib/bracket";
+import { isLeagueFormat } from "@/lib/league";
 import { prisma } from "@/lib/prisma";
 
 export default async function AdminBaganPage() {
@@ -31,6 +36,7 @@ export default async function AdminBaganPage() {
           slotBId: true,
           winnerTeamId: true,
           resultType: true,
+          notes: true,
           groupIndex: true,
           round: true,
         },
@@ -43,8 +49,62 @@ export default async function AdminBaganPage() {
     (m) => m.groupIndex != null && !m.resultType
   ).length;
   const hasKnockoutPhase = tournament.matches.some(
-    (m) => m.groupIndex == null && m.round >= 10
+    (m) => m.groupIndex == null && m.round >= KNOCKOUT_ROUND_BASE
   );
+  const canEditKnockout =
+    hasKnockoutPhase &&
+    !tournament.matches.some(
+      (m) =>
+        m.groupIndex == null &&
+        m.round >= KNOCKOUT_ROUND_BASE &&
+        m.resultType != null &&
+        !(m.notes ?? "").includes("BYE")
+    );
+
+  const r1Slots = tournament.bracketSlots
+    .filter(
+      (s) =>
+        s.groupIndex == null &&
+        s.round === KNOCKOUT_ROUND_BASE
+    )
+    .sort((a, b) => {
+      if (a.side !== b.side) return a.side === "left" ? -1 : 1;
+      return a.position - b.position;
+    });
+  const currentKnockoutSlotTeamIds = r1Slots.map((s) =>
+    s.isBye ? null : (s.teamId ?? null)
+  );
+
+  let knockoutQualifiers: {
+    teamId: string;
+    name: string;
+    groupIndex: number;
+    rank: number;
+    label: string;
+  }[] = [];
+  let knockoutMeta: {
+    bracketSize: number;
+    groupCount: number;
+    qualifyPerGroup: number;
+  } | null = null;
+
+  if (
+    isLeagueFormat(tournament.competitionFormat) &&
+    hasKnockoutPhase &&
+    pendingGroupMatches === 0
+  ) {
+    try {
+      const resolved = await resolveQualifiers(tournament.id);
+      knockoutQualifiers = resolved.qualifiers;
+      knockoutMeta = {
+        bracketSize: resolved.bracketSize,
+        groupCount: resolved.groupCount,
+        qualifyPerGroup: resolved.qualifyPerGroup,
+      };
+    } catch {
+      // Panel KO tetap tampil tanpa editor jika resolve gagal
+    }
+  }
 
   return (
     <AdminPageShell
@@ -77,6 +137,10 @@ export default async function AdminBaganPage() {
           matches={tournament.matches}
           pendingGroupMatches={pendingGroupMatches}
           hasKnockoutPhase={hasKnockoutPhase}
+          canEditKnockout={canEditKnockout}
+          knockoutQualifiers={knockoutQualifiers}
+          knockoutMeta={knockoutMeta}
+          currentKnockoutSlotTeamIds={currentKnockoutSlotTeamIds}
         />
     </AdminPageShell>
   );

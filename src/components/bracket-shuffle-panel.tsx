@@ -13,6 +13,10 @@ import {
   type MatchOutcomeData,
   type SlotData,
 } from "@/components/bracket-skeleton";
+import {
+  KnockoutPlacementPanel,
+  type KnockoutQualifierOption,
+} from "@/components/knockout-placement-panel";
 import SplitFlapText from "@/components/split-flap-text";
 import {
   normalizeBracketSize,
@@ -46,6 +50,14 @@ type BracketShufflePanelProps = {
   matches?: MatchOutcomeData[];
   pendingGroupMatches?: number;
   hasKnockoutPhase?: boolean;
+  canEditKnockout?: boolean;
+  knockoutQualifiers?: KnockoutQualifierOption[];
+  knockoutMeta?: {
+    bracketSize: number;
+    groupCount: number;
+    qualifyPerGroup: number;
+  } | null;
+  currentKnockoutSlotTeamIds?: (string | null)[];
 };
 
 function shuffleList<T>(items: T[]): T[] {
@@ -166,6 +178,10 @@ export function BracketShufflePanel({
   matches = [],
   pendingGroupMatches = 0,
   hasKnockoutPhase = false,
+  canEditKnockout = false,
+  knockoutQualifiers = [],
+  knockoutMeta = null,
+  currentKnockoutSlotTeamIds = [],
 }: BracketShufflePanelProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -604,6 +620,27 @@ export function BracketShufflePanel({
                   : `Kerangka bagan ${koBracketSize} — terisi otomatis setelah fase grup selesai.`}
               </p>
             </div>
+
+            {hasKnockoutPhase && knockoutMeta && knockoutQualifiers.length > 0 && (
+              <KnockoutPlacementPanel
+                key={currentKnockoutSlotTeamIds.join("|")}
+                tournamentId={tournamentId}
+                bracketSize={knockoutMeta.bracketSize}
+                groupCount={knockoutMeta.groupCount}
+                qualifyPerGroup={knockoutMeta.qualifyPerGroup}
+                qualifiers={knockoutQualifiers}
+                currentSlotTeamIds={
+                  currentKnockoutSlotTeamIds.length === knockoutMeta.bracketSize
+                    ? currentKnockoutSlotTeamIds
+                    : Array.from(
+                        { length: knockoutMeta.bracketSize },
+                        (_, i) => currentKnockoutSlotTeamIds[i] ?? null
+                      )
+                }
+                canEdit={canEditKnockout}
+              />
+            )}
+
             {hasKnockoutPhase && knockoutSlots.length > 0 ? (
               <BracketFilled
                 slots={knockoutSlots}

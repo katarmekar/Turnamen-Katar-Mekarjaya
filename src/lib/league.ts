@@ -227,28 +227,82 @@ export function buildGroupMatrices(
   });
 }
 
+export type QualifierInfo = {
+  teamId: string;
+  name: string;
+  groupIndex: number;
+  rank: number;
+  label: string;
+};
+
+/** Label peran klasemen, contoh: Juara Grup A / Runner-up Grup B. */
+export function qualifierRoleLabel(groupIndex: number, rank: number): string {
+  const letter = groupLetter(groupIndex);
+  if (rank === 1) return `Juara Grup ${letter}`;
+  if (rank === 2) return `Runner-up Grup ${letter}`;
+  return `Peringkat ${rank} Grup ${letter}`;
+}
+
 export function pickQualifiers(
   matrices: GroupMatrix[],
   qualifyPerGroup: number
-): { teamId: string; name: string; groupIndex: number; rank: number }[] {
-  const out: {
-    teamId: string;
-    name: string;
-    groupIndex: number;
-    rank: number;
-  }[] = [];
+): QualifierInfo[] {
+  const out: QualifierInfo[] = [];
 
   for (const g of matrices) {
     const top = g.standings.slice(0, Math.max(0, qualifyPerGroup));
     top.forEach((row, i) => {
+      const rank = i + 1;
       out.push({
         teamId: row.teamId,
         name: row.name,
         groupIndex: g.groupIndex,
-        rank: i + 1,
+        rank,
+        label: qualifierRoleLabel(g.groupIndex, rank),
       });
     });
   }
 
   return out;
+}
+
+/**
+ * Pola silang default untuk slot R1 (ukuran genap).
+ * 4 grup × 2 lolos: 1A–2B, 1C–2D, 1B–2A, 1D–2C.
+ * Selain itu: isi berurutan Juara→Runner per grup, sisa = null (BYE).
+ */
+export function defaultCrossRolePlacement(
+  groupCount: number,
+  qualifyPerGroup: number,
+  bracketSize: number
+): ({ groupIndex: number; rank: number } | null)[] {
+  const slots: ({ groupIndex: number; rank: number } | null)[] = Array.from(
+    { length: bracketSize },
+    () => null
+  );
+
+  if (groupCount === 4 && qualifyPerGroup === 2 && bracketSize >= 8) {
+    const pattern: [number, number][] = [
+      [0, 1],
+      [1, 2],
+      [2, 1],
+      [3, 2],
+      [1, 1],
+      [0, 2],
+      [3, 1],
+      [2, 2],
+    ];
+    pattern.forEach(([gi, rank], i) => {
+      slots[i] = { groupIndex: gi, rank };
+    });
+    return slots;
+  }
+
+  let i = 0;
+  for (let rank = 1; rank <= qualifyPerGroup && i < bracketSize; rank++) {
+    for (let gi = 0; gi < groupCount && i < bracketSize; gi++) {
+      slots[i++] = { groupIndex: gi, rank };
+    }
+  }
+  return slots;
 }
