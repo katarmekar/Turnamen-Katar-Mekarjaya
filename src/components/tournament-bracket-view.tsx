@@ -3,6 +3,7 @@ import {
   BracketSkeleton,
 } from "@/components/bracket-skeleton";
 import { GroupResultsMatrix } from "@/components/group-results-matrix";
+import { MatchScheduleList } from "@/components/match-schedule-list";
 import { TopScorersList } from "@/components/top-scorers-list";
 import { normalizePreviewBracketSize } from "@/lib/bracket-size";
 import { COMPETITION_FORMAT_LABEL } from "@/lib/format";
@@ -231,35 +232,23 @@ export function TournamentBracketView({
               </div>
 
               {hasSchedule && (
-                <div className="panel p-6">
-                  <h3 className="font-semibold text-white">
-                    Daftar pertandingan
-                  </h3>
-                  <ul className="mt-4 space-y-2 text-sm">
-                    {tournament.matches.map((m) => (
-                      <li
-                        key={m.id}
-                        className="rounded-lg border border-[var(--border)] px-3 py-2 text-[var(--muted)]"
-                      >
-                        <span className="text-white">
-                          {m.slotA.team?.name ?? "—"} vs{" "}
-                          {m.slotB.team?.name ?? "—"}
-                        </span>
-                        {m.notes ? ` · ${m.notes}` : ""}
-                        {m.resultType
-                          ? m.scoreA != null && m.scoreB != null
-                            ? ` · ${m.scoreA}-${m.scoreB}`
-                            : ` · ${m.resultType}`
-                          : " · Belum main"}
-                        {m.winnerTeam
-                          ? ` · ${m.winnerTeam.name}`
-                          : m.resultType === "score" && m.scoreA === m.scoreB
-                            ? " · Seri"
-                            : ""}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                <MatchScheduleList
+                  matches={tournament.matches.map((m) => ({
+                    id: m.id,
+                    scheduledAt: m.scheduledAt,
+                    notes: m.notes,
+                    resultType: m.resultType,
+                    scoreA: m.scoreA,
+                    scoreB: m.scoreB,
+                    teamAName: m.slotA.isBye
+                      ? "BYE"
+                      : (m.slotA.team?.name ?? "—"),
+                    teamBName: m.slotB.isBye
+                      ? "BYE"
+                      : (m.slotB.team?.name ?? "—"),
+                    winnerName: m.winnerTeam?.name ?? null,
+                  }))}
+                />
               )}
             </>
           ) : (
