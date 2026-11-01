@@ -115,6 +115,11 @@ model Tournament {
   pointsWin            Int              @default(2) @map("points_win") @db.SmallInt
   pointsDraw           Int              @default(1) @map("points_draw") @db.SmallInt
   pointsLoss           Int              @default(0) @map("points_loss") @db.SmallInt
+  /// Denda kartu (IDR) — dipotong dari deposit tim
+  yellowCardFine       Decimal          @default(0) @map("yellow_card_fine") @db.Decimal(12, 2)
+  redCardFine          Decimal          @default(0) @map("red_card_fine") @db.Decimal(12, 2)
+  /// Saran nominal deposit awal (admin bisa override per tim)
+  defaultDeposit       Decimal          @default(0) @map("default_deposit") @db.Decimal(12, 2)
   status               TournamentStatus @default(draft)
   bracketLocked        Boolean          @default(false) @map("bracket_locked")
   /// Naik tiap kali admin mengubah peraturan (manajer harus setuju ulang)
@@ -223,6 +228,8 @@ model Team {
   /// Versi peraturan yang sudah disetujui manajer (harus = tournament.rulesVersion)
   rulesAcceptedVersion Int?      @map("rules_accepted_version")
   rulesAcceptedAt      DateTime? @map("rules_accepted_at") @db.Timestamptz(6)
+  /// Deposit uang jaminan (IDR) — berkurang oleh denda kartu
+  depositAmount Decimal   @default(0) @map("deposit_amount") @db.Decimal(12, 2)
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 

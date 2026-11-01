@@ -105,6 +105,11 @@ export default async function AdminPanelPage() {
       desc: "Jadwal, skor, WO, DQ",
     },
     {
+      href: "/admin/deposit",
+      title: "Deposit & denda kartu",
+      desc: "Deposit tim, akumulasi kartu, sisa deposit",
+    },
+    {
       href: "/bagan",
       title: "Lihat bagan publik",
       desc: "Tampilan sistem gugur / liga",

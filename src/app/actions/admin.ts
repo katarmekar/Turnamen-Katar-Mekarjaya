@@ -6,7 +6,10 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { ensureDefaultDocCards } from "@/lib/doc-cards";
 import { ensureDefaultPlayerFields } from "@/lib/player-fields";
-import { ADMIN_TOURNAMENT_COOKIE } from "@/lib/admin-tournament";
+import {
+  ADMIN_TOURNAMENT_COOKIE,
+  getSelectedTournamentId,
+} from "@/lib/admin-tournament";
 import {
   generateCompetition,
   generateKnockoutFromGroups,
@@ -259,6 +262,9 @@ export async function saveTournament(
   const maxPlayersPerTeam = Number(formData.get("max_players_per_team") ?? 18);
   const minPlayersPerTeam = Number(formData.get("min_players_per_team") ?? 11);
   const fee = Number(formData.get("registration_fee") ?? 0);
+  const yellowCardFine = Number(formData.get("yellow_card_fine") ?? 0);
+  const redCardFine = Number(formData.get("red_card_fine") ?? 0);
+  const defaultDeposit = Number(formData.get("default_deposit") ?? 0);
   const bankName = String(formData.get("bank_name") ?? "").trim();
   const bankAccountNumber = String(
     formData.get("bank_account_number") ?? ""
@@ -370,6 +376,16 @@ export async function saveTournament(
     return { error: "Nomor WhatsApp admin tidak valid." };
   }
 
+  for (const [label, value] of [
+    ["Denda kartu kuning", yellowCardFine],
+    ["Denda kartu merah", redCardFine],
+    ["Deposit default", defaultDeposit],
+  ] as const) {
+    if (!Number.isFinite(value) || value < 0) {
+      return { error: `${label} tidak valid.` };
+    }
+  }
+
   const data = {
     name,
     description: description || null,
@@ -377,6 +393,9 @@ export async function saveTournament(
     maxPlayersPerTeam,
     minPlayersPerTeam,
     registrationFee: fee,
+    yellowCardFine,
+    redCardFine,
+    defaultDeposit,
     bankName: bankName || null,
     bankAccountNumber: bankAccountNumber || null,
     bankAccountHolder: bankAccountHolder || null,
@@ -419,6 +438,7 @@ export async function saveTournament(
   revalidatePath("/admin");
   revalidatePath("/admin/pilih");
   revalidatePath("/admin/panel");
+  revalidatePath("/admin/deposit");
   revalidatePath("/");
   return { success: "Turnamen disimpan." };
 }
@@ -605,9 +625,43 @@ export async function submitScore(
       events,
     });
     revalidatePath("/admin/jadwal");
+    revalidatePath("/admin/deposit");
     revalidatePath("/bagan");
     return { success: "Hasil pertandingan disimpan." };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Gagal simpan skor" };
   }
+}
+
+export async function updateTeamDeposit(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireRole("admin");
+  const selectedId = await getSelectedTournamentId();
+  if (!selectedId) {
+    return { error: "Pilih turnamen dulu." };
+  }
+
+  const teamId = String(formData.get("team_id") ?? "");
+  const depositAmount = Number(formData.get("deposit_amount") ?? 0);
+  if (!teamId) return { error: "Tim tidak valid." };
+  if (!Number.isFinite(depositAmount) || depositAmount < 0) {
+    return { error: "Nominal deposit tidak valid." };
+  }
+
+  const team = await prisma.team.findFirst({
+    where: { id: teamId, tournamentId: selectedId },
+    select: { id: true },
+  });
+  if (!team) return { error: "Tim tidak ditemukan di turnamen terpilih." };
+
+  await prisma.team.update({
+    where: { id: teamId },
+    data: { depositAmount },
+  });
+
+  revalidatePath("/admin/deposit");
+  revalidatePath("/admin/panel");
+  return { success: "Deposit disimpan." };
 }

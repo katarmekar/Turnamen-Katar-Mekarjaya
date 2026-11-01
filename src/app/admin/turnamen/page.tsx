@@ -159,6 +159,33 @@ export default async function AdminTurnamenPage({ searchParams }: PageProps) {
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm">
+                <span className="text-[var(--muted)]">Denda kartu kuning</span>
+                <IdrMoneyInput
+                  name="yellow_card_fine"
+                  defaultValue={Number(active?.yellowCardFine ?? 0)}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-[var(--muted)]">Denda kartu merah</span>
+                <IdrMoneyInput
+                  name="red_card_fine"
+                  defaultValue={Number(active?.redCardFine ?? 0)}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+                <span className="text-[var(--muted)]">
+                  Deposit default (saran nominal per tim)
+                </span>
+                <IdrMoneyInput
+                  name="default_deposit"
+                  defaultValue={Number(active?.defaultDeposit ?? 0)}
+                />
+                <span className="text-xs text-[var(--muted)]">
+                  Dipakai sebagai acuan di menu Deposit &amp; denda. Nominal
+                  tiap tim tetap bisa diubah terpisah.
+                </span>
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
                 <span className="text-[var(--muted)]">Bank</span>
                 <input
                   name="bank_name"
