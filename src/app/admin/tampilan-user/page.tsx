@@ -65,12 +65,10 @@ export default async function AdminTampilanUserPage({
         include: {
           tournament: true,
           players: {
-            orderBy: [{ jerseyNumber: "asc" }, { fullName: "asc" }],
+            orderBy: [{ fullName: "asc" }],
             select: {
               id: true,
               fullName: true,
-              jerseyNumber: true,
-              position: true,
             },
           },
           payments: { orderBy: { createdAt: "desc" }, take: 3 },
@@ -92,33 +90,47 @@ export default async function AdminTampilanUserPage({
   const yellowFine = toMoneyNumber(tournament.yellowCardFine);
   const redFine = toMoneyNumber(tournament.redCardFine);
 
-  const [matches, bracketTournament, rosterLocked, depositSummary] = team
-    ? await Promise.all([
-        rulesAccepted
-          ? prisma.match.findMany({
-              where: {
-                tournamentId: tournament.id,
-                OR: [
-                  { slotA: { teamId: team.id } },
-                  { slotB: { teamId: team.id } },
-                ],
-              },
-              include: {
-                slotA: { include: { team: true } },
-                slotB: { include: { team: true } },
-                winnerTeam: true,
-              },
-              orderBy: [{ scheduledAt: "asc" }, { round: "asc" }],
-            })
-          : Promise.resolve([]),
-        getTournamentForBracket(tournament.id),
-        isRosterLocked(tournament.id),
-        getTeamDepositSummary(team.id, tournament.id, team.depositAmount, {
-          yellowCardFine: yellowFine,
-          redCardFine: redFine,
-        }),
-      ])
-    : [[], null, false, null];
+  const [matches, bracketTournament, rosterLocked, depositSummary, goalEvents] =
+    team
+      ? await Promise.all([
+          rulesAccepted
+            ? prisma.match.findMany({
+                where: {
+                  tournamentId: tournament.id,
+                  OR: [
+                    { slotA: { teamId: team.id } },
+                    { slotB: { teamId: team.id } },
+                  ],
+                },
+                include: {
+                  slotA: { include: { team: true } },
+                  slotB: { include: { team: true } },
+                  winnerTeam: true,
+                },
+                orderBy: [{ scheduledAt: "asc" }, { round: "asc" }],
+              })
+            : Promise.resolve([]),
+          getTournamentForBracket(tournament.id),
+          isRosterLocked(tournament.id),
+          getTeamDepositSummary(team.id, tournament.id, team.depositAmount, {
+            yellowCardFine: yellowFine,
+            redCardFine: redFine,
+          }),
+          prisma.matchEvent.findMany({
+            where: {
+              teamId: team.id,
+              type: "goal",
+              match: { tournamentId: tournament.id },
+            },
+            select: { playerId: true },
+          }),
+        ])
+      : [[], null, false, null, []];
+
+  const goalsByPlayer = new Map<string, number>();
+  for (const e of goalEvents) {
+    goalsByPlayer.set(e.playerId, (goalsByPlayer.get(e.playerId) ?? 0) + 1);
+  }
 
   return (
     <AdminPageShell
@@ -321,21 +333,20 @@ export default async function AdminTampilanUserPage({
               <p className="mt-2 text-sm text-[var(--muted)]">Belum ada pemain.</p>
             ) : (
               <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-                {team.players.map((p) => (
-                  <li
-                    key={p.id}
-                    className="rounded-md border border-white/10 px-3 py-2 text-sm text-white"
-                  >
-                    {p.jerseyNumber != null ? `#${p.jerseyNumber} ` : ""}
-                    {p.fullName}
-                    {p.position ? (
-                      <span className="text-[var(--muted)]">
-                        {" "}
-                        · {p.position}
+                {team.players.map((p) => {
+                  const goals = goalsByPlayer.get(p.id) ?? 0;
+                  return (
+                    <li
+                      key={p.id}
+                      className="flex items-center justify-between gap-3 rounded-md border border-white/10 px-3 py-2 text-sm text-white"
+                    >
+                      <span className="min-w-0 truncate">{p.fullName}</span>
+                      <span className="shrink-0 text-[var(--muted)]">
+                        {goals} gol
                       </span>
-                    ) : null}
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
