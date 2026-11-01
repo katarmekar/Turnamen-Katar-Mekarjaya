@@ -1,8 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
+import { TeamDepositSummaryPanel } from "@/components/team-deposit-remaining-list";
 import { TournamentBracketView } from "@/components/tournament-bracket-view";
 import { requireProfile } from "@/lib/auth";
+import {
+  getTeamDepositSummary,
+  toMoneyNumber,
+} from "@/lib/deposit";
 import { ROLE_LABEL, TEAM_STATUS_LABEL } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import {
@@ -58,7 +63,12 @@ export default async function DashboardPage() {
       })
     : false;
 
-  const [openCount, matches, bracketTournament, rosterLockedMap] =
+  const yellowFine = team
+    ? toMoneyNumber(team.tournament.yellowCardFine)
+    : 0;
+  const redFine = team ? toMoneyNumber(team.tournament.redCardFine) : 0;
+
+  const [openCount, matches, bracketTournament, rosterLockedMap, depositSummary] =
     await Promise.all([
       prisma.tournament.count({
         where: {
@@ -87,6 +97,17 @@ export default async function DashboardPage() {
         : Promise.resolve([]),
       getTournamentForBracket(team?.tournamentId),
       getRosterLockedMap(teams.map((t) => t.tournamentId)),
+      team
+        ? getTeamDepositSummary(
+            team.id,
+            team.tournamentId,
+            team.depositAmount,
+            {
+              yellowCardFine: yellowFine,
+              redCardFine: redFine,
+            }
+          )
+        : Promise.resolve(null),
     ]);
 
   return (
@@ -276,6 +297,12 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
+
+        {team && depositSummary && (
+          <div className="panel mt-4 p-6">
+            <TeamDepositSummaryPanel summary={depositSummary} />
+          </div>
+        )}
 
         <div className="panel mt-4 p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">

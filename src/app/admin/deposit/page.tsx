@@ -5,11 +5,10 @@ import { IdrMoneyInput } from "@/components/idr-money-input";
 import { requireSelectedTournament } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
 import {
-  summarizeDeposit,
+  getTournamentDepositRows,
   toMoneyNumber,
 } from "@/lib/deposit";
 import { formatIdr } from "@/lib/format";
-import { prisma } from "@/lib/prisma";
 
 export default async function AdminDepositPage() {
   const profile = await requireRole("admin");
@@ -18,51 +17,9 @@ export default async function AdminDepositPage() {
   const yellowFine = toMoneyNumber(tournament.yellowCardFine);
   const redFine = toMoneyNumber(tournament.redCardFine);
   const defaultDeposit = toMoneyNumber(tournament.defaultDeposit);
-
-  const teams = await prisma.team.findMany({
-    where: { tournamentId: tournament.id },
-    select: {
-      id: true,
-      name: true,
-      city: true,
-      status: true,
-      depositAmount: true,
-    },
-    orderBy: { name: "asc" },
-  });
-
-  const teamIds = teams.map((t) => t.id);
-  const events =
-    teamIds.length === 0
-      ? []
-      : await prisma.matchEvent.findMany({
-          where: {
-            teamId: { in: teamIds },
-            type: { in: ["yellow_card", "red_card"] },
-            match: { tournamentId: tournament.id },
-          },
-          select: { teamId: true, type: true },
-        });
-
-  const cardCounts = new Map<string, { yellow: number; red: number }>();
-  for (const id of teamIds) {
-    cardCounts.set(id, { yellow: 0, red: 0 });
-  }
-  for (const e of events) {
-    const row = cardCounts.get(e.teamId);
-    if (!row) continue;
-    if (e.type === "yellow_card") row.yellow += 1;
-    if (e.type === "red_card") row.red += 1;
-  }
-
-  const rows = teams.map((team) => {
-    const cards = cardCounts.get(team.id) ?? { yellow: 0, red: 0 };
-    const deposit = toMoneyNumber(team.depositAmount);
-    const summary = summarizeDeposit(deposit, cards, {
-      yellowCardFine: yellowFine,
-      redCardFine: redFine,
-    });
-    return { team, summary };
+  const rows = await getTournamentDepositRows(tournament.id, {
+    yellowCardFine: yellowFine,
+    redCardFine: redFine,
   });
 
   return (

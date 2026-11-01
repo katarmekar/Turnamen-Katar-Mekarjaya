@@ -133,6 +133,21 @@ function EventRows({
   );
 }
 
+function winnerFromScores(
+  scoreA: string,
+  scoreB: string,
+  teamAId: string,
+  teamBId: string
+): string | null {
+  if (scoreA === "" || scoreB === "") return null;
+  const a = Number(scoreA);
+  const b = Number(scoreB);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  if (a > b) return teamAId;
+  if (b > a) return teamBId;
+  return "";
+}
+
 export function MatchScoreForm({
   matchId,
   isRr,
@@ -142,6 +157,21 @@ export function MatchScoreForm({
   isEdit,
 }: MatchScoreFormProps) {
   const [events, setEvents] = useState<MatchEventDraft[]>(initial.events);
+  const [resultType, setResultType] = useState(initial.resultType);
+  const [scoreA, setScoreA] = useState(
+    initial.scoreA != null ? String(initial.scoreA) : ""
+  );
+  const [scoreB, setScoreB] = useState(
+    initial.scoreB != null ? String(initial.scoreB) : ""
+  );
+  const [winnerTeamId, setWinnerTeamId] = useState(initial.winnerTeamId);
+
+  function syncWinnerFromScores(nextA: string, nextB: string) {
+    if (resultType !== "score") return;
+    const auto = winnerFromScores(nextA, nextB, teamA.id, teamB.id);
+    if (auto === null) return;
+    setWinnerTeamId(auto);
+  }
 
   function addEvent(type: MatchEventDraft["type"]) {
     setEvents((prev) => [
@@ -171,7 +201,15 @@ export function MatchScoreForm({
         <select
           name="result_type"
           className="input"
-          defaultValue={initial.resultType}
+          value={resultType}
+          onChange={(e) => {
+            const next = e.target.value as MatchScoreFormProps["initial"]["resultType"];
+            setResultType(next);
+            if (next === "score") {
+              const auto = winnerFromScores(scoreA, scoreB, teamA.id, teamB.id);
+              if (auto !== null) setWinnerTeamId(auto);
+            }
+          }}
         >
           <option value="score">Skor</option>
           <option value="wo">WO</option>
@@ -180,15 +218,19 @@ export function MatchScoreForm({
       </label>
       <label className="flex flex-col gap-1 text-sm">
         <span className="text-[var(--muted)]">
-          Pemenang{isRr ? " (kosong = seri)" : ""}
+          Pemenang
+          {isRr ? " (otomatis dari skor; kosong = seri)" : " (otomatis dari skor)"}
         </span>
         <select
           name="winner_team_id"
           className="input"
           required={!isRr}
-          defaultValue={initial.winnerTeamId}
+          value={winnerTeamId}
+          onChange={(e) => setWinnerTeamId(e.target.value)}
         >
-          {isRr && <option value="">Seri / belum pilih</option>}
+          {(isRr || winnerTeamId === "") && (
+            <option value="">Seri / belum pilih</option>
+          )}
           <option value={teamA.id}>{teamA.name}</option>
           <option value={teamB.id}>{teamB.name}</option>
         </select>
@@ -200,7 +242,12 @@ export function MatchScoreForm({
           type="number"
           min={0}
           className="input"
-          defaultValue={initial.scoreA ?? ""}
+          value={scoreA}
+          onChange={(e) => {
+            const next = e.target.value;
+            setScoreA(next);
+            syncWinnerFromScores(next, scoreB);
+          }}
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -210,7 +257,12 @@ export function MatchScoreForm({
           type="number"
           min={0}
           className="input"
-          defaultValue={initial.scoreB ?? ""}
+          value={scoreB}
+          onChange={(e) => {
+            const next = e.target.value;
+            setScoreB(next);
+            syncWinnerFromScores(scoreA, next);
+          }}
         />
       </label>
 

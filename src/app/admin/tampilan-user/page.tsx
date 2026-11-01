@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { AdminPageShell } from "@/components/admin-page-shell";
 import { AdminUserViewPicker } from "@/components/admin-user-view-picker";
+import { TeamDepositSummaryPanel } from "@/components/team-deposit-remaining-list";
 import { TournamentBracketView } from "@/components/tournament-bracket-view";
 import { requireSelectedTournament } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
+import {
+  getTeamDepositSummary,
+  toMoneyNumber,
+} from "@/lib/deposit";
 import { TEAM_STATUS_LABEL, formatIdr } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import {
@@ -82,7 +87,10 @@ export default async function AdminTampilanUserPage({
       })
     : false;
 
-  const [matches, bracketTournament, rosterLocked] = team
+  const yellowFine = toMoneyNumber(tournament.yellowCardFine);
+  const redFine = toMoneyNumber(tournament.redCardFine);
+
+  const [matches, bracketTournament, rosterLocked, depositSummary] = team
     ? await Promise.all([
         rulesAccepted
           ? prisma.match.findMany({
@@ -103,8 +111,12 @@ export default async function AdminTampilanUserPage({
           : Promise.resolve([]),
         getTournamentForBracket(tournament.id),
         isRosterLocked(tournament.id),
+        getTeamDepositSummary(team.id, tournament.id, team.depositAmount, {
+          yellowCardFine: yellowFine,
+          redCardFine: redFine,
+        }),
       ])
-    : [[], null, false];
+    : [[], null, false, null];
 
   return (
     <AdminPageShell
@@ -292,6 +304,12 @@ export default async function AdminTampilanUserPage({
               )}
             </div>
           </div>
+
+          {depositSummary && (
+            <div className="panel p-6">
+              <TeamDepositSummaryPanel summary={depositSummary} />
+            </div>
+          )}
 
           <div className="panel p-6">
             <h3 className="text-lg font-semibold text-white">
