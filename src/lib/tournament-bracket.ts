@@ -1,6 +1,13 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
+/** Hanya field aman untuk Client Component (tanpa Decimal Prisma). */
+const teamBriefSelect = {
+  id: true,
+  name: true,
+  status: true,
+} satisfies Prisma.TeamSelect;
+
 const bracketInclude = {
   teams: {
     where: {
@@ -8,26 +15,39 @@ const bracketInclude = {
         in: ["pending_payment", "awaiting_confirm", "confirmed"],
       },
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "asc" as const },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      createdAt: true,
+    },
   },
   bracketSlots: {
-    include: { team: true },
-    orderBy: [{ round: "asc" }, { side: "asc" }, { position: "asc" }],
+    include: { team: { select: teamBriefSelect } },
+    orderBy: [
+      { round: "asc" as const },
+      { side: "asc" as const },
+      { position: "asc" as const },
+    ],
   },
   matches: {
     include: {
-      slotA: { include: { team: true } },
-      slotB: { include: { team: true } },
-      winnerTeam: true,
+      slotA: { include: { team: { select: teamBriefSelect } } },
+      slotB: { include: { team: { select: teamBriefSelect } } },
+      winnerTeam: { select: { id: true, name: true } },
       events: {
-        where: { type: "goal" },
+        where: { type: "goal" as const },
         include: {
           player: { select: { id: true, fullName: true } },
           team: { select: { id: true, name: true } },
         },
       },
     },
-    orderBy: [{ round: "asc" }, { createdAt: "asc" }],
+    orderBy: [
+      { round: "asc" as const },
+      { createdAt: "asc" as const },
+    ],
   },
 } satisfies Prisma.TournamentInclude;
 
