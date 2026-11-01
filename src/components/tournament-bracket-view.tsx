@@ -3,6 +3,7 @@ import {
   BracketSkeleton,
 } from "@/components/bracket-skeleton";
 import { GroupResultsMatrix } from "@/components/group-results-matrix";
+import { TopScorersList } from "@/components/top-scorers-list";
 import { normalizePreviewBracketSize } from "@/lib/bracket-size";
 import { COMPETITION_FORMAT_LABEL } from "@/lib/format";
 import {
@@ -10,6 +11,7 @@ import {
   isLeagueFormat,
   pickQualifiers,
 } from "@/lib/league";
+import { aggregateTopScorers } from "@/lib/top-scorers";
 import type { TournamentForBracket } from "@/lib/tournament-bracket";
 
 type TournamentBracketViewProps = {
@@ -18,6 +20,8 @@ type TournamentBracketViewProps = {
   showHeading?: boolean;
   /** Tim fokus (manajer) — matriks grup default ke grup tim ini. */
   focusTeamId?: string | null;
+  /** Tampilkan panel top skor (default true). Matikan jika sudah ditampilkan di luar. */
+  showTopScorers?: boolean;
 };
 
 const KNOCKOUT_ROUND_BASE = 10;
@@ -52,6 +56,7 @@ export function TournamentBracketView({
   tournament,
   showHeading = true,
   focusTeamId,
+  showTopScorers = true,
 }: TournamentBracketViewProps) {
   const isRr = isLeagueFormat(tournament?.competitionFormat);
   const hasSchedule = tournament != null && tournament.matches.length > 0;
@@ -107,6 +112,10 @@ export function TournamentBracketView({
     isRr && tournament?.groupCount
       ? ` · ${tournament.groupCount} grup × maks ${tournament.maxTeamsPerGroup ?? "—"} · lolos ${tournament.qualifyPerGroup ?? "—"}/grup`
       : "";
+
+  const topScorers = tournament
+    ? aggregateTopScorers(tournament.matches)
+    : [];
 
   return (
     <div>
@@ -175,6 +184,8 @@ export function TournamentBracketView({
               )}
 
               <div className="space-y-4">
+                {showTopScorers && <TopScorersList scorers={topScorers} />}
+
                 <div className="panel p-4">
                   <h3 className="font-semibold text-white">
                     Bagan knockout
@@ -253,6 +264,7 @@ export function TournamentBracketView({
             </>
           ) : (
             <div className="space-y-4">
+              {showTopScorers && <TopScorersList scorers={topScorers} />}
               {!hasSchedule && tournament.teams.length > 0 && (
                 <div className="panel space-y-2 p-4">
                   <p className="text-xs uppercase tracking-wider text-[var(--muted)]">

@@ -19,6 +19,13 @@ const bracketInclude = {
       slotA: { include: { team: true } },
       slotB: { include: { team: true } },
       winnerTeam: true,
+      events: {
+        where: { type: "goal" },
+        include: {
+          player: { select: { id: true, fullName: true } },
+          team: { select: { id: true, name: true } },
+        },
+      },
     },
     orderBy: [{ round: "asc" }, { createdAt: "asc" }],
   },

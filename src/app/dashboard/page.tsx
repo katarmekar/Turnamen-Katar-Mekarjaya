@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { TeamDepositSummaryPanel } from "@/components/team-deposit-remaining-list";
+import { TopScorersList } from "@/components/top-scorers-list";
 import { TournamentBracketView } from "@/components/tournament-bracket-view";
 import { requireProfile } from "@/lib/auth";
 import {
@@ -17,6 +18,7 @@ import {
 import { getRosterLockedMap } from "@/lib/roster-lock";
 import { getTournamentForBracket } from "@/lib/tournament-bracket";
 import { hasAcceptedCurrentRules } from "@/lib/tournament-rules";
+import { aggregateTopScorers } from "@/lib/top-scorers";
 
 function formatSchedule(d: Date) {
   return new Intl.DateTimeFormat("id-ID", {
@@ -443,6 +445,14 @@ export default async function DashboardPage() {
           )}
         </div>
 
+        {bracketTournament && (
+          <div className="mt-4">
+            <TopScorersList
+              scorers={aggregateTopScorers(bracketTournament.matches)}
+            />
+          </div>
+        )}
+
         <section id="bagan" className="mt-10 scroll-mt-8">
           <div className="mb-4">
             <p className="text-sm uppercase tracking-[0.25em] text-[var(--accent)]">
@@ -471,6 +481,7 @@ export default async function DashboardPage() {
               tournament={bracketTournament}
               showHeading={false}
               focusTeamId={team?.id}
+              showTopScorers={false}
             />
           )}
         </section>

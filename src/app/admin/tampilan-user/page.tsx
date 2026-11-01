@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AdminPageShell } from "@/components/admin-page-shell";
 import { AdminUserViewPicker } from "@/components/admin-user-view-picker";
 import { TeamDepositSummaryPanel } from "@/components/team-deposit-remaining-list";
+import { TopScorersList } from "@/components/top-scorers-list";
 import { TournamentBracketView } from "@/components/tournament-bracket-view";
 import { requireSelectedTournament } from "@/lib/admin-tournament";
 import { requireRole } from "@/lib/auth";
@@ -18,6 +19,7 @@ import {
 import { isRosterLocked } from "@/lib/roster-lock";
 import { getTournamentForBracket } from "@/lib/tournament-bracket";
 import { hasAcceptedCurrentRules } from "@/lib/tournament-rules";
+import { aggregateTopScorers } from "@/lib/top-scorers";
 
 function formatSchedule(d: Date) {
   return new Intl.DateTimeFormat("id-ID", {
@@ -339,6 +341,12 @@ export default async function AdminTampilanUserPage({
           </div>
 
           {bracketTournament && (
+            <TopScorersList
+              scorers={aggregateTopScorers(bracketTournament.matches)}
+            />
+          )}
+
+          {bracketTournament && (
             <div className="panel p-6">
               <h3 className="mb-4 text-lg font-semibold text-white">
                 Bagan (seperti di dashboard manajer)
@@ -347,6 +355,7 @@ export default async function AdminTampilanUserPage({
                 tournament={bracketTournament}
                 showHeading={false}
                 focusTeamId={team.id}
+                showTopScorers={false}
               />
             </div>
           )}
