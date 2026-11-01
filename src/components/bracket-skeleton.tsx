@@ -1,6 +1,10 @@
 "use client";
 
 import SplitFlapText from "@/components/split-flap-text";
+import {
+  normalizeBracketSize,
+  normalizePreviewBracketSize,
+} from "@/lib/bracket-size";
 
 export type SlotData = {
   id?: string;
@@ -20,6 +24,11 @@ export type MatchOutcomeData = {
 
 export type SlotTone = "empty" | "bye" | "filled" | "winner" | "loser";
 
+export {
+  normalizeBracketSize,
+  normalizePreviewBracketSize,
+} from "@/lib/bracket-size";
+
 type BracketSkeletonProps = {
   maxTeams: number;
   /** Label override untuk slot babak 1 (animasi acak) */
@@ -34,16 +43,6 @@ type BracketFilledProps = {
   shuffling?: boolean;
   matches?: MatchOutcomeData[];
 };
-
-/** Ukuran bagan 2^n (termasuk 4 untuk SF→final setelah fase grup). */
-export function normalizeBracketSize(n: number) {
-  if (n <= 2) return 2;
-  if (n <= 4) return 4;
-  if (n <= 8) return 8;
-  if (n <= 16) return 16;
-  if (n <= 32) return 32;
-  return 64;
-}
 
 function roundLabel(size: number, round: number, totalRounds: number) {
   const remaining = size / 2 ** (round - 1);
@@ -470,7 +469,7 @@ export function BracketSkeleton({
   r1Labels,
   shuffling,
 }: BracketSkeletonProps) {
-  const size = normalizeBracketSize(maxTeams);
+  const size = normalizePreviewBracketSize(maxTeams);
   return (
     <ProBracketView
       slots={buildEmptySlots(size)}
@@ -491,12 +490,16 @@ export function BracketFilled({
   shuffling,
   matches,
 }: BracketFilledProps) {
-  const remapped = remapRoundsToBracket(slots);
+  const playable = slots.filter(
+    (s) => s.side === "left" || s.side === "right"
+  );
+  const remapped = remapRoundsToBracket(playable);
+  const round1Count = remapped.filter((s) => s.round === 1).length;
   const inferred =
-    bracketSize ??
-    (remapped.filter((s) => s.round === 1).length ||
-      remapped.length ||
-      8);
+    (bracketSize && bracketSize > 0 ? bracketSize : 0) ||
+    round1Count ||
+    remapped.length ||
+    8;
   const size = normalizeBracketSize(inferred);
   return (
     <ProBracketView

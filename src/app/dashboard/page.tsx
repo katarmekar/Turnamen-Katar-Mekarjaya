@@ -443,6 +443,7 @@ export default async function DashboardPage() {
             <TournamentBracketView
               tournament={bracketTournament}
               showHeading={false}
+              focusTeamId={team?.id}
             />
           )}
         </section>

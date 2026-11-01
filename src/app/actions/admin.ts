@@ -357,9 +357,14 @@ export async function saveTournament(
       };
     }
     if (groupCount * maxTeamsPerGroup < maxTeams) {
-      return {
-        error: `Kapasitas grup (${groupCount}×${maxTeamsPerGroup}=${groupCount * maxTeamsPerGroup}) kurang dari kapasitas turnamen (${maxTeams}).`,
-      };
+      // Auto-naikkan maks. per grup agar cukup menampung kapasitas turnamen.
+      const needed = Math.ceil(maxTeams / groupCount);
+      if (needed > 16) {
+        return {
+          error: `Kapasitas grup (${groupCount}×${maxTeamsPerGroup}=${groupCount * maxTeamsPerGroup}) kurang dari kapasitas turnamen (${maxTeams}). Naikkan jumlah grup atau turunkan kapasitas turnamen (maks. 16 tim/grup).`,
+        };
+      }
+      maxTeamsPerGroup = needed;
     }
     for (const [label, value] of [
       ["Poin menang", pointsWin],

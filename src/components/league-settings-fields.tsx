@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 type LeagueSettingsFieldsProps = {
   defaultFormat?: string;
@@ -13,6 +13,14 @@ type LeagueSettingsFieldsProps = {
   maxTeams?: number;
 };
 
+function suggestGroups(capacity: number) {
+  return capacity >= 16 ? 4 : 2;
+}
+
+function suggestPerGroup(capacity: number, groups: number) {
+  return Math.max(2, Math.ceil(capacity / Math.max(1, groups)));
+}
+
 export function LeagueSettingsFields({
   defaultFormat = "knockout",
   defaultGroupCount,
@@ -21,16 +29,79 @@ export function LeagueSettingsFields({
   defaultPointsWin = 2,
   defaultPointsDraw = 1,
   defaultPointsLoss = 0,
-  maxTeams = 16,
+  maxTeams: initialMaxTeams = 16,
 }: LeagueSettingsFieldsProps) {
+  const rootId = useId();
   const [format, setFormat] = useState(defaultFormat);
+  const [capacity, setCapacity] = useState(initialMaxTeams);
   const isLeague = format !== "knockout";
 
-  const suggestedGroups = maxTeams >= 16 ? 4 : 2;
-  const suggestedPerGroup = Math.max(2, Math.ceil(maxTeams / suggestedGroups));
+  const suggestedGroups = suggestGroups(capacity);
+  const [groupCount, setGroupCount] = useState(
+    defaultGroupCount && defaultGroupCount > 0
+      ? defaultGroupCount
+      : suggestedGroups
+  );
+  const [maxPerGroup, setMaxPerGroup] = useState(
+    defaultMaxTeamsPerGroup && defaultMaxTeamsPerGroup > 0
+      ? defaultMaxTeamsPerGroup
+      : suggestPerGroup(capacity, groupCount)
+  );
+  const [qualifyPerGroup, setQualifyPerGroup] = useState(
+    defaultQualifyPerGroup && defaultQualifyPerGroup > 0
+      ? defaultQualifyPerGroup
+      : 1
+  );
+
+  // Ikuti perubahan input kapasitas di form yang sama.
+  useEffect(() => {
+    const root = document.getElementById(rootId);
+    const form = root?.closest("form");
+    const maxInput = form?.querySelector<HTMLInputElement>(
+      'input[name="max_teams"]'
+    );
+    if (!maxInput) return;
+
+    const sync = () => {
+      const next = Number(maxInput.value);
+      if (Number.isFinite(next) && next >= 2) setCapacity(next);
+    };
+    sync();
+    maxInput.addEventListener("input", sync);
+    maxInput.addEventListener("change", sync);
+    return () => {
+      maxInput.removeEventListener("input", sync);
+      maxInput.removeEventListener("change", sync);
+    };
+  }, [rootId]);
+
+  // Pastikan kapasitas grup selalu cukup menampung kapasitas turnamen.
+  useEffect(() => {
+    if (!isLeague) return;
+    setGroupCount((g) => {
+      const groups = g > 0 ? g : suggestGroups(capacity);
+      setMaxPerGroup((per) => {
+        const need = suggestPerGroup(capacity, groups);
+        if (!per || per * groups < capacity) return need;
+        return per;
+      });
+      return groups;
+    });
+  }, [capacity, isLeague]);
+
+  // Lolos per grup tidak boleh melebihi maks. tim per grup.
+  useEffect(() => {
+    if (!isLeague) return;
+    setQualifyPerGroup((q) => {
+      const next = q > 0 ? q : 1;
+      return Math.min(next, Math.max(1, maxPerGroup));
+    });
+  }, [maxPerGroup, isLeague]);
+
+  const capacityOk = groupCount * maxPerGroup >= capacity;
 
   return (
-    <>
+    <div id={rootId} className="contents">
       <label className="flex flex-col gap-1 text-sm">
         <span className="text-[var(--muted)]">Sistem kompetisi</span>
         <select
@@ -66,7 +137,16 @@ export function LeagueSettingsFields({
               max={16}
               required
               className="input"
-              defaultValue={defaultGroupCount ?? suggestedGroups}
+              value={groupCount}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                if (!Number.isFinite(next)) return;
+                setGroupCount(next);
+                const need = suggestPerGroup(capacity, next);
+                setMaxPerGroup((per) =>
+                  !per || per * next < capacity ? need : per
+                );
+              }}
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
@@ -78,7 +158,11 @@ export function LeagueSettingsFields({
               max={16}
               required
               className="input"
-              defaultValue={defaultMaxTeamsPerGroup ?? suggestedPerGroup}
+              value={maxPerGroup}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                if (Number.isFinite(next)) setMaxPerGroup(next);
+              }}
             />
             <span className="text-[11px] text-[var(--muted)]">
               Grup boleh terisi lebih sedikit.
@@ -93,12 +177,24 @@ export function LeagueSettingsFields({
               max={8}
               required
               className="input"
-              defaultValue={defaultQualifyPerGroup ?? 1}
+              value={qualifyPerGroup}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                if (Number.isFinite(next)) setQualifyPerGroup(next);
+              }}
             />
             <span className="text-[11px] text-[var(--muted)]">
               Ke fase gugur (SF/final).
             </span>
           </label>
+          {!capacityOk && (
+            <p className="sm:col-span-3 text-xs text-amber-300">
+              Kapasitas grup sekarang {groupCount}×{maxPerGroup}=
+              {groupCount * maxPerGroup}, lebih kecil dari kapasitas turnamen (
+              {capacity}). Naikkan jumlah grup atau maks. tim per grup sebelum
+              menyimpan.
+            </p>
+          )}
           <p className="sm:col-span-3 mt-1 text-xs font-medium text-white">
             Poin klasemen
           </p>
@@ -140,6 +236,6 @@ export function LeagueSettingsFields({
           </label>
         </div>
       )}
-    </>
+    </div>
   );
 }

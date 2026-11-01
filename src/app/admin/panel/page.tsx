@@ -110,6 +110,11 @@ export default async function AdminPanelPage() {
       desc: "Deposit tim, akumulasi kartu, sisa deposit",
     },
     {
+      href: "/admin/tampilan-user",
+      title: "Tampilan user",
+      desc: "Preview dashboard manajer per tim",
+    },
+    {
       href: "/bagan",
       title: "Lihat bagan publik",
       desc: "Tampilan sistem gugur / liga",

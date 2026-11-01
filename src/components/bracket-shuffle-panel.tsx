@@ -10,11 +10,14 @@ import {
 import {
   BracketFilled,
   BracketSkeleton,
-  normalizeBracketSize,
   type MatchOutcomeData,
   type SlotData,
 } from "@/components/bracket-skeleton";
 import SplitFlapText from "@/components/split-flap-text";
+import {
+  normalizeBracketSize,
+  normalizePreviewBracketSize,
+} from "@/lib/bracket-size";
 import { COMPETITION_FORMAT_LABEL } from "@/lib/format";
 import { groupLetter, isLeagueFormat } from "@/lib/league";
 
@@ -240,9 +243,11 @@ export function BracketShufflePanel({
     if (n < 2) return 4;
     let p = 2;
     while (p < n) p *= 2;
-    return normalizeBracketSize(p);
+    return Math.max(4, p);
   })();
-  const koBracketSize = normalizeBracketSize(bracketSize ?? expectedKoSize);
+  const koBracketSize = normalizePreviewBracketSize(
+    bracketSize && bracketSize > 0 ? bracketSize : expectedKoSize
+  );
 
   const stopTicks = useCallback(() => {
     if (tickRef.current) {
@@ -543,7 +548,9 @@ export function BracketShufflePanel({
           {hasSlots && !shuffling ? (
             <BracketFilled
               slots={slots}
-              bracketSize={bracketSize ?? maxTeams}
+              bracketSize={
+                bracketSize && bracketSize > 0 ? bracketSize : maxTeams
+              }
               matches={matches}
             />
           ) : (
@@ -600,8 +607,14 @@ export function BracketShufflePanel({
             {hasKnockoutPhase && knockoutSlots.length > 0 ? (
               <BracketFilled
                 slots={knockoutSlots}
-                bracketSize={koBracketSize}
-                matches={matches}
+                bracketSize={
+                  bracketSize && bracketSize > 0 ? bracketSize : koBracketSize
+                }
+                matches={matches?.filter((m) =>
+                  knockoutSlots.some(
+                    (s) => s.id && (s.id === m.slotAId || s.id === m.slotBId)
+                  )
+                )}
               />
             ) : (
               <BracketSkeleton maxTeams={koBracketSize} />

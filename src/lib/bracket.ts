@@ -271,7 +271,8 @@ export async function generateKnockoutFromGroups(tournamentId: string) {
     throw new Error("Minimal 2 tim lolos untuk fase gugur.");
   }
 
-  const bracketSize = nextPowerOf2(qualifiers.length);
+  // Minimum 4 agar bagan selalu SF→final (bukan final 2 slot saja).
+  const bracketSize = Math.max(4, nextPowerOf2(qualifiers.length));
   if (bracketSize > 64) {
     throw new Error("Jumlah tim lolos terlalu banyak untuk bagan (maks 64).");
   }

@@ -1,6 +1,12 @@
 import type { StandingRow } from "@/lib/standings";
 
-export function StandingsTable({ rows }: { rows: StandingRow[] }) {
+export function StandingsTable({
+  rows,
+  highlightTeamId,
+}: {
+  rows: StandingRow[];
+  highlightTeamId?: string | null;
+}) {
   if (rows.length === 0) {
     return (
       <p className="text-sm text-[var(--muted)]">
@@ -27,20 +33,37 @@ export function StandingsTable({ rows }: { rows: StandingRow[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => (
-            <tr key={r.teamId} className="border-b border-white/5 last:border-0">
-              <td className="px-3 py-2 text-[var(--muted)]">{i + 1}</td>
-              <td className="px-3 py-2 font-medium text-white">{r.name}</td>
-              <td className="px-3 py-2 text-white">{r.played}</td>
-              <td className="px-3 py-2 text-white">{r.won}</td>
-              <td className="px-3 py-2 text-white">{r.drawn}</td>
-              <td className="px-3 py-2 text-white">{r.lost}</td>
-              <td className="px-3 py-2 text-white">{r.gf}</td>
-              <td className="px-3 py-2 text-white">{r.ga}</td>
-              <td className="px-3 py-2 text-white">{r.gd}</td>
-              <td className="px-3 py-2 font-semibold text-sky-300">{r.points}</td>
-            </tr>
-          ))}
+          {rows.map((r, i) => {
+            const mine = highlightTeamId != null && r.teamId === highlightTeamId;
+            return (
+              <tr
+                key={r.teamId}
+                className={`border-b border-white/5 last:border-0 ${
+                  mine ? "bg-[var(--accent)]/10" : ""
+                }`}
+              >
+                <td className="px-3 py-2 text-[var(--muted)]">{i + 1}</td>
+                <td
+                  className={`px-3 py-2 font-medium ${
+                    mine ? "text-[var(--accent)]" : "text-white"
+                  }`}
+                >
+                  {r.name}
+                  {mine ? " · Anda" : ""}
+                </td>
+                <td className="px-3 py-2 text-white">{r.played}</td>
+                <td className="px-3 py-2 text-white">{r.won}</td>
+                <td className="px-3 py-2 text-white">{r.drawn}</td>
+                <td className="px-3 py-2 text-white">{r.lost}</td>
+                <td className="px-3 py-2 text-white">{r.gf}</td>
+                <td className="px-3 py-2 text-white">{r.ga}</td>
+                <td className="px-3 py-2 text-white">{r.gd}</td>
+                <td className="px-3 py-2 font-semibold text-sky-300">
+                  {r.points}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

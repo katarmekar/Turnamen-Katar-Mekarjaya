@@ -3,18 +3,26 @@ import {
   BracketSkeleton,
 } from "@/components/bracket-skeleton";
 import { GroupResultsMatrix } from "@/components/group-results-matrix";
+import { normalizePreviewBracketSize } from "@/lib/bracket-size";
 import { COMPETITION_FORMAT_LABEL } from "@/lib/format";
-import { buildGroupMatrices, isLeagueFormat } from "@/lib/league";
+import {
+  buildGroupMatrices,
+  isLeagueFormat,
+  pickQualifiers,
+} from "@/lib/league";
 import type { TournamentForBracket } from "@/lib/tournament-bracket";
 
 type TournamentBracketViewProps = {
   tournament: TournamentForBracket | null;
   /** Tampilkan judul & meta di atas konten (default true) */
   showHeading?: boolean;
+  /** Tim fokus (manajer) — matriks grup default ke grup tim ini. */
+  focusTeamId?: string | null;
 };
 
 const KNOCKOUT_ROUND_BASE = 10;
 
+/** Estimasi ukuran bagan KO dari setting grup — minimum 4 (SF→final). */
 function expectedKnockoutSize(
   groupCount: number | null | undefined,
   qualifyPerGroup: number | null | undefined
@@ -23,12 +31,27 @@ function expectedKnockoutSize(
   if (n < 2) return 4;
   let p = 2;
   while (p < n) p *= 2;
-  return p;
+  return Math.max(4, p);
+}
+
+/** Label babak 1 dari klasemen sementara (preview sebelum fase gugur). */
+function buildQualifierPreviewLabels(
+  matrices: ReturnType<typeof buildGroupMatrices>,
+  qualifyPerGroup: number,
+  bracketSize: number
+): string[] {
+  const qualifiers = pickQualifiers(matrices, qualifyPerGroup);
+  const labels = qualifiers.map(
+    (q) => `${q.name} (G${String.fromCharCode(65 + q.groupIndex)}#${q.rank})`
+  );
+  while (labels.length < bracketSize) labels.push("—");
+  return labels.slice(0, bracketSize);
 }
 
 export function TournamentBracketView({
   tournament,
   showHeading = true,
+  focusTeamId,
 }: TournamentBracketViewProps) {
   const isRr = isLeagueFormat(tournament?.competitionFormat);
   const hasSchedule = tournament != null && tournament.matches.length > 0;
@@ -54,9 +77,31 @@ export function TournamentBracketView({
       )
     : [];
   const hasKnockout = knockoutMatches.length > 0 && knockoutSlots.length > 0;
-  const koSize =
-    tournament?.bracketSize ??
-    expectedKnockoutSize(tournament?.groupCount, tournament?.qualifyPerGroup);
+  const groupMatches = tournament
+    ? tournament.matches.filter((m) => m.groupIndex != null)
+    : [];
+  const pendingGroupMatches = groupMatches.filter((m) => !m.resultType).length;
+  const groupsComplete =
+    groupMatches.length > 0 && pendingGroupMatches === 0;
+  const expectedKo = expectedKnockoutSize(
+    tournament?.groupCount,
+    tournament?.qualifyPerGroup
+  );
+  const koSize = normalizePreviewBracketSize(
+    tournament?.bracketSize && tournament.bracketSize > 0
+      ? tournament.bracketSize
+      : expectedKo
+  );
+  // Nama tim baru masuk slot KO setelah semua pertandingan grup selesai
+  // (dan sebelum/ sesudah admin memulai fase gugur).
+  const previewLabels =
+    !hasKnockout && groupsComplete
+      ? buildQualifierPreviewLabels(
+          groupMatrices,
+          tournament?.qualifyPerGroup ?? 0,
+          koSize
+        )
+      : undefined;
 
   const groupMeta =
     isRr && tournament?.groupCount
@@ -99,89 +144,22 @@ export function TournamentBracketView({
           {isRr ? (
             <>
               {hasSchedule ? (
-                <>
-                  <div className="panel p-6">
-                    <h3 className="font-semibold text-white">
-                      Hasil fase grup
-                    </h3>
-                    <p className="mt-1 text-sm text-[var(--muted)]">
-                      Matriks skor antar tim dalam grup. Diisi otomatis saat
-                      admin memasukkan hasil di Jadwal &amp; skor.
-                    </p>
-                    <div className="mt-4">
-                      <GroupResultsMatrix
-                        groups={groupMatrices}
-                        pointsWin={tournament.pointsWin}
-                        pointsDraw={tournament.pointsDraw}
-                        pointsLoss={tournament.pointsLoss}
-                      />
-                    </div>
+                <div className="panel p-6">
+                  <h3 className="font-semibold text-white">Hasil fase grup</h3>
+                  <p className="mt-1 text-sm text-[var(--muted)]">
+                    Matriks skor dan klasemen per grup. Tim baru masuk bagan
+                    knockout setelah seluruh pertandingan grup selesai.
+                  </p>
+                  <div className="mt-4">
+                    <GroupResultsMatrix
+                      groups={groupMatrices}
+                      pointsWin={tournament.pointsWin}
+                      pointsDraw={tournament.pointsDraw}
+                      pointsLoss={tournament.pointsLoss}
+                      focusTeamId={focusTeamId}
+                    />
                   </div>
-
-                  <div className="space-y-4">
-                    <div className="panel p-4">
-                      <h3 className="font-semibold text-white">
-                        Bagan knockout
-                        {koSize <= 4
-                          ? " (semifinal → final)"
-                          : koSize <= 8
-                            ? " (perempat → final)"
-                            : ""}
-                      </h3>
-                      <p className="mt-1 text-sm text-[var(--muted)]">
-                        {hasKnockout
-                          ? `Tim lolos dari grup · bagan ${koSize}`
-                          : `Setelah fase grup selesai, ${tournament.qualifyPerGroup ?? "—"} tim/grup masuk bagan knockout (${koSize} slot).`}
-                      </p>
-                    </div>
-                    <div className="overflow-x-auto">
-                      {hasKnockout ? (
-                        <BracketFilled
-                          slots={knockoutSlots}
-                          bracketSize={koSize}
-                          matches={knockoutMatches.map((m) => ({
-                            slotAId: m.slotAId,
-                            slotBId: m.slotBId,
-                            winnerTeamId: m.winnerTeamId,
-                            resultType: m.resultType,
-                          }))}
-                        />
-                      ) : (
-                        <BracketSkeleton maxTeams={koSize} />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="panel p-6">
-                    <h3 className="font-semibold text-white">
-                      Daftar pertandingan
-                    </h3>
-                    <ul className="mt-4 space-y-2 text-sm">
-                      {tournament.matches.map((m) => (
-                        <li
-                          key={m.id}
-                          className="rounded-lg border border-[var(--border)] px-3 py-2 text-[var(--muted)]"
-                        >
-                          <span className="text-white">
-                            {m.slotA.team?.name ?? "—"} vs{" "}
-                            {m.slotB.team?.name ?? "—"}
-                          </span>
-                          {m.notes ? ` · ${m.notes}` : ""}
-                          {m.resultType
-                            ? m.scoreA != null && m.scoreB != null
-                              ? ` · ${m.scoreA}-${m.scoreB}`
-                              : ` · ${m.resultType}`
-                            : " · Belum main"}
-                          {m.winnerTeam
-                            ? ` · ${m.winnerTeam.name}`
-                            : m.resultType === "score" && m.scoreA === m.scoreB
-                              ? " · Seri"
-                              : ""}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </>
+                </div>
               ) : (
                 <div className="panel p-6">
                   <p className="text-sm text-[var(--muted)]">
@@ -193,6 +171,83 @@ export function TournamentBracketView({
                     Jadwal dibuat setelah admin menekan{" "}
                     <strong className="text-white">Acak tim</strong>.
                   </p>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div className="panel p-4">
+                  <h3 className="font-semibold text-white">
+                    Bagan knockout
+                    {koSize <= 4
+                      ? " (semifinal → final)"
+                      : koSize <= 8
+                        ? " (perempat → final)"
+                        : ""}
+                  </h3>
+                  <p className="mt-1 text-sm text-[var(--muted)]">
+                    {hasKnockout
+                      ? `Tim lolos dari grup · bagan ${koSize}`
+                      : groupsComplete
+                        ? `Fase grup selesai · ${tournament.qualifyPerGroup ?? "—"} lolos/grup · kerangka ${koSize}. Urutan final diacak saat admin memulai fase gugur.`
+                        : hasSchedule
+                          ? `Menunggu fase grup selesai (${pendingGroupMatches} pertandingan belum main). Slot perempat/semifinal tetap kosong.`
+                          : `Kerangka bagan ${koSize} — terisi setelah seluruh pertandingan grup selesai.`}
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  {hasKnockout ? (
+                    <BracketFilled
+                      slots={knockoutSlots}
+                      bracketSize={
+                        tournament.bracketSize && tournament.bracketSize > 0
+                          ? tournament.bracketSize
+                          : koSize
+                      }
+                      matches={knockoutMatches.map((m) => ({
+                        slotAId: m.slotAId,
+                        slotBId: m.slotBId,
+                        winnerTeamId: m.winnerTeamId,
+                        resultType: m.resultType,
+                      }))}
+                    />
+                  ) : (
+                    <BracketSkeleton
+                      maxTeams={koSize}
+                      r1Labels={previewLabels}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {hasSchedule && (
+                <div className="panel p-6">
+                  <h3 className="font-semibold text-white">
+                    Daftar pertandingan
+                  </h3>
+                  <ul className="mt-4 space-y-2 text-sm">
+                    {tournament.matches.map((m) => (
+                      <li
+                        key={m.id}
+                        className="rounded-lg border border-[var(--border)] px-3 py-2 text-[var(--muted)]"
+                      >
+                        <span className="text-white">
+                          {m.slotA.team?.name ?? "—"} vs{" "}
+                          {m.slotB.team?.name ?? "—"}
+                        </span>
+                        {m.notes ? ` · ${m.notes}` : ""}
+                        {m.resultType
+                          ? m.scoreA != null && m.scoreB != null
+                            ? ` · ${m.scoreA}-${m.scoreB}`
+                            : ` · ${m.resultType}`
+                          : " · Belum main"}
+                        {m.winnerTeam
+                          ? ` · ${m.winnerTeam.name}`
+                          : m.resultType === "score" && m.scoreA === m.scoreB
+                            ? " · Seri"
+                            : ""}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </>
@@ -225,7 +280,9 @@ export function TournamentBracketView({
                   <BracketFilled
                     slots={tournament.bracketSlots}
                     bracketSize={
-                      tournament.bracketSize ?? tournament.maxTeams
+                      tournament.bracketSize && tournament.bracketSize > 0
+                        ? tournament.bracketSize
+                        : tournament.maxTeams
                     }
                     matches={tournament.matches.map((m) => ({
                       slotAId: m.slotAId,
